@@ -2,25 +2,42 @@
   <div class="module-detail">
     <el-breadcrumb separator="/" class="crumb">
       <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-      <el-breadcrumb-item>{{ module?.name }}</el-breadcrumb-item>
+      <el-breadcrumb-item>{{ module?.name || '模块' }}</el-breadcrumb-item>
     </el-breadcrumb>
 
-    <div v-if="module" class="module-header vl-card">
-      <div class="header-left">
+    <!-- 加载骨架 -->
+    <div v-if="!module" class="header-skeleton skeleton"></div>
+
+    <div v-else class="module-header vl-card">
+      <div class="header-main">
         <div class="icon-big" :style="{ background: (module.color || '#ea4c89') + '1a' }">
           {{ module.icon || '📁' }}
         </div>
         <div class="header-text">
           <h1 class="module-name">{{ module.name }}</h1>
-          <p class="module-desc">{{ module.description || '暂无简介' }}</p>
+          <p class="module-desc">{{ module.description || '这个模块还没有写简介' }}</p>
+          <div class="module-stats">
+            <span class="ms-item"><strong>{{ entries.length }}</strong> 个条目</span>
+            <span class="ms-dot">·</span>
+            <span class="ms-item doing"><strong>{{ doingCount }}</strong> 在做</span>
+            <span class="ms-dot">·</span>
+            <span class="ms-item done"><strong>{{ doneCount }}</strong> 已掌握</span>
+          </div>
         </div>
       </div>
-      <button class="btn-ink" @click="router.push(`/entry/edit/${moduleId}`)">
-        <span style="font-size: 16px">＋</span> 添加条目
-      </button>
+      <div class="header-actions">
+        <button class="btn-ghost" @click="goEditModule">编辑模块</button>
+        <button class="btn-primary-gradient" @click="router.push(`/entry/edit/${moduleId}`)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+            stroke-width="2.4" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          添加条目
+        </button>
+      </div>
     </div>
 
-    <div class="filter-bar">
+    <div v-if="module" class="filter-bar">
       <el-radio-group v-model="filterStatus" @change="fetchList">
         <el-radio-button :label="null">全部</el-radio-button>
         <el-radio-button :label="0">未做</el-radio-button>
@@ -37,7 +54,7 @@
       />
     </div>
 
-    <div v-if="entries.length" class="entry-grid">
+    <div v-if="module && entries.length" class="entry-grid">
       <EntryCard
         v-for="e in entries"
         :key="e.id"
@@ -48,31 +65,50 @@
       />
     </div>
     <EmptyState
-      v-else
+      v-else-if="module"
       title="该模块还没有条目"
-      subtitle="点击右上角添加第一个条目"
+      subtitle="添加第一条笔记、算法题或八股文，开始填充这个模块"
+      action-text="添加第一个条目"
       @click="router.push(`/entry/edit/${moduleId}`)"
     />
+
+    <CreateModuleDialog v-model="editDialogVisible" :module="module" @submit="handleModuleSubmit" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { moduleApi, entryApi } from '@/api'
 import type { Module, Entry } from '@/types'
 import EntryCard from '@/components/EntryCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import CreateModuleDialog from '@/components/CreateModuleDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
-const moduleId = Number(route.params.id)
+const moduleId = String(route.params.id)
 
 const module = ref<Module | null>(null)
 const entries = ref<Entry[]>([])
 const filterStatus = ref<number | null>(null)
 const keyword = ref('')
+const editDialogVisible = ref(false)
+
+const doingCount = computed(() => entries.value.filter((e) => e.status === 1).length)
+const doneCount = computed(() => entries.value.filter((e) => e.status === 2).length)
+
+const goEditModule = () => {
+  editDialogVisible.value = true
+}
+
+const handleModuleSubmit = async (data: Partial<Module>) => {
+  await moduleApi.update(moduleId, data)
+  ElMessage.success('模块已更新')
+  const res = await moduleApi.detail(moduleId)
+  module.value = res.data
+}
 
 onMounted(async () => {
   const [mRes, eRes] = await Promise.all([
@@ -124,24 +160,33 @@ const handleStatus = async (entry: Entry, status: number) => {
 }
 
 .crumb {
-  margin-bottom: 20px
+  margin-bottom: 18px;
+}
+
+.header-skeleton {
+  height: 120px;
+  border-radius: $radius-md;
+  margin-bottom: 24px;
 }
 
 .module-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 20px;
   padding: 24px 28px;
-  margin-bottom: 26px;
+  margin-bottom: 24px;
 }
 
-.header-left {
+.header-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 18px;
+  min-width: 0;
 }
 
 .icon-big {
+  flex-shrink: 0;
   width: 60px;
   height: 60px;
   border-radius: $radius-md;
@@ -151,25 +196,56 @@ const handleStatus = async (entry: Entry, status: number) => {
   font-size: 30px;
 }
 
+.header-text {
+  min-width: 0;
+}
+
 .module-name {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 23px;
+  font-weight: 800;
   color: $ink;
-  margin: 0 0 5px;
-  letter-spacing: -0.01em;
+  margin: 2px 0 6px;
+  letter-spacing: -0.015em;
 }
 
 .module-desc {
   color: $muted;
   font-size: 14px;
-  margin: 0;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.module-stats {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: $muted;
+
+  strong {
+    color: $ink;
+    font-weight: 700;
+  }
+  .doing strong { color: $warning; }
+  .done strong { color: $success; }
+}
+
+.ms-dot {
+  color: $border;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .filter-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
   gap: 16px;
   flex-wrap: wrap;
 }
@@ -184,17 +260,21 @@ const handleStatus = async (entry: Entry, status: number) => {
 @media (max-width: 768px) {
   .module-header {
     flex-direction: column;
-    align-items: stretch;
     gap: 16px;
     padding: 18px;
   }
-  .header-left { gap: 12px; }
-  .icon-big { width: 48px; height: 48px; font-size: 24px; }
+  .icon-big { width: 50px; height: 50px; font-size: 25px; }
   .module-name { font-size: 19px; }
-  .module-header .btn-ink { width: 100%; justify-content: center; }
+  .header-actions {
+    width: 100%;
+    .btn-ghost,
+    .btn-primary-gradient {
+      flex: 1;
+      justify-content: center;
+    }
+  }
 
   .filter-bar { gap: 12px; }
-  // 模块内搜索框占满整行（覆盖 inline 的 240px）
   .filter-bar .el-input { width: 100% !important; }
   .entry-grid {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -203,7 +283,6 @@ const handleStatus = async (entry: Entry, status: number) => {
 }
 
 @media (max-width: 480px) {
-  // 状态筛选按钮组横向滚动，不折行
   .filter-bar .el-radio-group {
     max-width: 100%;
     overflow-x: auto;
@@ -213,11 +292,7 @@ const handleStatus = async (entry: Entry, status: number) => {
 }
 
 @keyframes page-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

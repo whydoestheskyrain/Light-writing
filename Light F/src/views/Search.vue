@@ -7,7 +7,9 @@
       </p>
     </header>
 
-    <div v-if="loading" class="state-tip">搜索中…</div>
+    <div v-if="loading" class="state-tip">
+      <div v-for="n in 4" :key="n" class="skeleton search-skeleton"></div>
+    </div>
 
     <ul v-else-if="results.length" class="result-list">
       <li
@@ -38,8 +40,19 @@
     </ul>
 
     <div v-else class="state-tip">
-      <template v-if="keyword">没有找到与「{{ keyword }}」相关的条目，换个关键词试试</template>
-      <template v-else>输入关键词后按回车搜索</template>
+      <div class="state-illu">
+        <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="60" cy="86" rx="40" ry="6" fill="#f4f4f6" />
+          <circle cx="52" cy="42" r="24" fill="#fff" stroke="#e7e7e9" stroke-width="2.5" />
+          <line x1="70" y1="60" x2="88" y2="78" stroke="#ea4c89" stroke-width="4" stroke-linecap="round" />
+          <line x1="42" y1="38" x2="58" y2="38" stroke="#f0f0f0" stroke-width="3" stroke-linecap="round" />
+          <line x1="42" y1="48" x2="54" y2="48" stroke="#f0f0f0" stroke-width="3" stroke-linecap="round" />
+        </svg>
+      </div>
+      <p class="state-title">{{ keyword ? '没有找到相关条目' : '开始搜索' }}</p>
+      <p class="state-sub">
+        {{ keyword ? `没有与「${keyword}」相关的结果，换个关键词试试` : '在顶部搜索框输入关键词后按回车' }}
+      </p>
     </div>
   </div>
 </template>
@@ -72,9 +85,9 @@ const statusMeta: Record<number, { label: string; color: string }> = {
   2: { label: '已掌握', color: '#00b150' }
 }
 
-const moduleMeta = (id: number) => {
-  const m = modules.value.find(x => String(x.id) === String(id))
-  return { name: m?.name || `模块 #${id}`, color: m?.color || '#ea4c89' }
+const moduleMeta = (id: string) => {
+  const m = modules.value.find(x => x.id === id)
+  return { name: m?.name || '未知模块', color: m?.color || '#ea4c89' }
 }
 
 const relTime = (t: string) => {
@@ -226,9 +239,31 @@ watch(keyword, (q) => runSearch(q), { immediate: true })
 
 .state-tip {
   text-align: center;
-  font-size: 14px;
-  color: $faint;
-  padding: 60px 0;
+  padding: 48px 0 64px;
+}
+
+.search-skeleton {
+  height: 72px;
+  border-radius: $radius-md;
+  margin-bottom: 12px;
+}
+
+.state-illu {
+  width: 120px;
+  margin: 0 auto 14px;
+}
+
+.state-title {
+  font-size: 16.5px;
+  font-weight: 700;
+  color: $ink;
+  margin: 0 0 6px;
+}
+
+.state-sub {
+  font-size: 13.5px;
+  color: $muted;
+  margin: 0;
 }
 
 // ============ 暗色模式 ============

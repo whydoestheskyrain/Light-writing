@@ -45,16 +45,41 @@
         <!-- 三个统计卡 -->
         <div class="stat-cards">
           <div class="stat-card">
-            <div class="stat-label">今日学习</div>
-            <div class="stat-value">{{ study.format(study.todaySeconds) }}</div>
+            <div class="stat-icon is-pink">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" />
+              </svg>
+            </div>
+            <div class="stat-meta">
+              <div class="stat-label">今日学习</div>
+              <div class="stat-value">{{ study.format(study.todaySeconds) }}</div>
+            </div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">累计学习</div>
-            <div class="stat-value">{{ study.format(study.totalSeconds) }}</div>
+            <div class="stat-icon is-blue">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 17l5-5 4 4 8-8" /><polyline points="16 8 20 8 20 12" />
+              </svg>
+            </div>
+            <div class="stat-meta">
+              <div class="stat-label">累计学习</div>
+              <div class="stat-value">{{ study.format(study.totalSeconds) }}</div>
+            </div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">连续打卡</div>
-            <div class="stat-value">{{ study.streakDays }} <span class="stat-unit">天</span></div>
+            <div class="stat-icon is-green">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 2v4M16 2v4M3 9h18" /><rect x="4" y="4" width="16" height="18" rx="3" />
+                <path d="M9 15l2 2 4-4" />
+              </svg>
+            </div>
+            <div class="stat-meta">
+              <div class="stat-label">连续打卡</div>
+              <div class="stat-value">{{ study.streakDays }} <span class="stat-unit">天</span></div>
+            </div>
           </div>
         </div>
 
@@ -188,7 +213,7 @@ import { useStudyStore } from '@/stores/study'
 echarts.use([PieChart, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
 import { moduleApi, entryApi } from '@/api'
 import { wallpapers, wallIndex, pickWallpaper } from '@/config/wallpapers'
-import type { Module, Entry } from '@/types'
+import type { Module, Entry, ID } from '@/types'
 
 const study = useStudyStore()
 const router = useRouter()
@@ -349,7 +374,7 @@ const pickWall = pickWallpaper
 
 // ============ 最近编辑 ============
 interface RecentEntry {
-  id: number; moduleId: number; type: string; title: string
+  id: ID; moduleId: ID; type: string; title: string
   status: number; updateTime: string; createTime: string
 }
 const recentEntries = ref<RecentEntry[]>([])
@@ -375,9 +400,9 @@ const typeMeta = (t: string) =>
   ({ note: { label: '笔记', color: '#4f8cff' }, algorithm: { label: '算法', color: '#ea4c89' }, qa: { label: '八股', color: '#7c5cff' }, link: { label: '链接', color: '#0bb8b8' } } as Record<string, { label: string; color: string }>)[t]
   || { label: t, color: '#6e6d7a' }
 
-const modMeta = (id: number) => {
-  const m = moduleList.value.find(x => String(x.id) === String(id))
-  return { name: m?.name || `模块 #${id}`, color: m?.color || '#ea4c89' }
+const modMeta = (id: ID) => {
+  const m = moduleList.value.find(x => x.id === id)
+  return { name: m?.name || '未知模块', color: m?.color || '#ea4c89' }
 }
 
 const relTime = (t: string) => {
@@ -393,7 +418,7 @@ const relTime = (t: string) => {
   return t.slice(0, 10)
 }
 
-const goEntry = (id: number) => router.push(`/entry/${id}`)
+const goEntry = (id: ID) => router.push(`/entry/${id}`)
 
 // ============ 数据导入导出 ============
 const importFile = ref<HTMLInputElement | null>(null)
@@ -488,7 +513,7 @@ async function onImportFile(e: Event) {
         // 重新拉取，建立 旧模块id → 现模块id 映射
         const freshRes = await moduleApi.list()
         const freshByName = new Map<string, any>((freshRes.data || []).map(m => [m.name, m]))
-        const idMap = new Map<number, number>()
+        const idMap = new Map<ID, ID>()
         for (const m of mods) {
           const cur = freshByName.get(m.name)
           if (cur) idMap.set(m.id, cur.id)
@@ -785,18 +810,44 @@ h2 {
   background: $bg-card;
   border: 1px solid $border-soft;
   border-radius: $radius-lg;
-  padding: 24px;
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    box-shadow: $shadow-hover;
+    transform: translateY(-2px);
+  }
+}
+.stat-icon {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &.is-pink { background: rgba(234, 76, 137, 0.12); color: $primary; }
+  &.is-blue { background: rgba(79, 140, 255, 0.12); color: $c-note; }
+  &.is-green { background: rgba(0, 177, 80, 0.12); color: $success; }
+}
+.stat-meta {
+  min-width: 0;
 }
 .stat-label {
   font-size: 13px;
   color: $faint;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
 }
 .stat-value {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 23px;
+  font-weight: 800;
   color: $ink;
   letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 .stat-unit { font-size: 14px; font-weight: 500; color: $muted; }
 

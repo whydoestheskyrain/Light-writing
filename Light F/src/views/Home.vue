@@ -6,34 +6,54 @@
         <span class="dot"></span> 个人学习工作台
       </span>
       <h1 class="hero-title">
-        让每一份 Java 学习资料<br />
+        让每一份学习资料<br />
         都<span class="grad">井然有序</span>
       </h1>
       <p class="hero-sub">
         整理视频教程、文字笔记、八股文与算法题，用卡片构建属于你的学习模块，持续跟踪掌握进度。
       </p>
       <div class="hero-actions">
-        <button class="btn-ink" @click="openCreate">
-          <span style="font-size: 16px">＋</span> 创建学习模块
+        <button class="btn-primary-gradient hero-cta" @click="openCreate">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+            stroke-width="2.4" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          创建学习模块
         </button>
-        <span v-if="store.modules.length" class="hero-count">
-          已有 <strong>{{ store.modules.length }}</strong> 个模块
-        </span>
-        <span class="hero-count hero-study">
-          今日学习 <strong>{{ study.format(study.todaySeconds) }}</strong>
-        </span>
+        <div class="hero-stats">
+          <span class="stat-pill">
+            <span class="stat-icon is-blue">▦</span>
+            已有 <strong>{{ store.modules.length }}</strong> 个模块
+          </span>
+          <span class="stat-pill">
+            <span class="stat-icon is-pink">⏱</span>
+            今日学习 <strong>{{ study.format(study.todaySeconds) }}</strong>
+          </span>
+        </div>
       </div>
     </section>
 
     <!-- 模块网格 -->
     <section class="section">
       <div class="section-head">
-        <h2 class="section-title">我的模块</h2>
-        <span class="section-count">{{ store.modules.length }} 个</span>
+        <div class="head-left">
+          <h2 class="section-title">我的模块</h2>
+          <span class="section-count">{{ store.modules.length }}</span>
+        </div>
+        <button v-if="store.modules.length" class="head-add" @click="openCreate">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+            stroke-width="2.4" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          新建
+        </button>
       </div>
 
-      <div v-loading="store.loading">
-        <div v-if="store.modules.length" class="module-grid">
+      <div>
+        <div v-if="store.loading" class="module-grid">
+          <div v-for="n in 4" :key="n" class="skeleton-card skeleton" />
+        </div>
+        <div v-else-if="store.modules.length" class="module-grid">
           <ModuleCard
             v-for="m in store.modules"
             :key="m.id"
@@ -56,7 +76,8 @@
         <EmptyState
           v-else
           title="还没有学习模块"
-          subtitle="点击创建你的第一个模块，开始整理学习资料"
+          subtitle="创建第一个模块，把零散的教程、笔记和算法题收纳进来"
+          action-text="创建第一个模块"
           @click="openCreate"
         />
       </div>
@@ -137,7 +158,7 @@ const handleDelete = async (m: Module) => {
 // ============ Hero ============
 .hero {
   text-align: center;
-  padding: 40px 0 56px;
+  padding: 32px 0 44px;
 }
 
 .hero-badge {
@@ -151,61 +172,60 @@ const handleDelete = async (m: Module) => {
   font-size: 12.5px;
   font-weight: 500;
   color: $muted;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
+  box-shadow: $shadow-sm;
 
   .dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
     background: $primary;
+    box-shadow: 0 0 0 3px rgba(234, 76, 137, 0.15);
   }
 }
 
 .hero-title {
-  font-size: 46px;
+  font-size: 42px;
   font-weight: 800;
   line-height: 1.18;
   letter-spacing: -0.025em;
   color: $ink;
-  margin: 0 0 20px;
+  margin: 0 0 18px;
 
   .grad {
-    background: linear-gradient(120deg, $primary, #ff7eb3);
+    background: linear-gradient(120deg, $primary, #a05cf0);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 }
 
 .hero-sub {
-  font-size: 16px;
+  font-size: 15.5px;
   color: $muted;
-  max-width: 560px;
-  margin: 0 auto 32px;
-  line-height: 1.7;
+  max-width: 540px;
+  margin: 0 auto 28px;
+  line-height: 1.75;
 }
 
 .hero-actions {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 18px;
 }
 
-.btn-ink {
-  height: 46px;
-  padding: 0 28px;
-  font-size: 15px;
+.hero-cta {
+  height: 48px;
+  padding: 0 30px;
+  font-size: 15.5px;
 }
 
-.hero-count {
-  font-size: 14px;
-  color: $muted;
-
-  strong {
-    color: $ink;
-  }
+.hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
-.hero-study strong { color: $primary; }
 
 // ============ 网格区 ============
 .section {
@@ -214,21 +234,58 @@ const handleDelete = async (m: Module) => {
 
 .section-head {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.head-left {
+  display: flex;
   align-items: baseline;
   gap: 10px;
-  margin-bottom: 20px;
 }
 
 .section-title {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 800;
   color: $ink;
   letter-spacing: -0.01em;
 }
 
 .section-count {
+  min-width: 24px;
+  height: 22px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-pill;
+  background: $bg-subtle;
+  font-size: 12px;
+  font-weight: 600;
+  color: $muted;
+}
+
+.head-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid $border;
+  border-radius: $radius-pill;
+  background: #fff;
   font-size: 13px;
-  color: $faint;
+  font-weight: 600;
+  color: $ink-soft;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: $primary;
+    color: $primary;
+    background: rgba(234, 76, 137, 0.04);
+  }
 }
 
 .module-grid {
@@ -237,9 +294,14 @@ const handleDelete = async (m: Module) => {
   gap: $grid-gap;
 
   > * {
-    width: 95%;
-    justify-self: center;
+    width: 100%;
+    justify-self: stretch;
   }
+}
+
+.skeleton-card {
+  aspect-ratio: 4 / 3;
+  border-radius: $radius-md;
 }
 
 .add-card {
@@ -298,34 +360,30 @@ const handleDelete = async (m: Module) => {
   }
 }
 
-// 手机：hero 收缩；卡片保持两列（对齐 Dribbble 移动端）
 @media (max-width: 640px) {
   .hero {
-    padding: 16px 0 32px;
+    padding: 12px 0 28px;
   }
-  .hero-badge { margin-bottom: 18px; }
+  .hero-badge { margin-bottom: 16px; }
   .hero-title {
-    font-size: 26px;
-    margin-bottom: 14px;
+    font-size: 27px;
+    margin-bottom: 12px;
   }
   .hero-sub {
     font-size: 13.5px;
     line-height: 1.65;
     margin-bottom: 22px;
   }
-  .hero-actions {
-    flex-wrap: wrap;
-    gap: 10px;
-    .btn-ink { width: 100%; height: 44px; justify-content: center; }
-  }
-  .section-head h2 { font-size: 20px; }
+  .hero-cta { width: 100%; height: 46px; justify-content: center; }
+  .hero-stats { width: 100%; }
+  .stat-pill { flex: 1; justify-content: center; }
+  .section-head h2 { font-size: 19px; }
   .module-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
 }
 
-// 超窄屏：单列避免卡片过小
 @media (max-width: 360px) {
   .module-grid {
     grid-template-columns: 1fr;

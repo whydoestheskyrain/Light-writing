@@ -3,7 +3,7 @@
     <transition name="panel">
       <div v-if="open" ref="panelRef" class="user-panel" :style="panelStyle">
         <!-- ============ 区块 1：用户信息 ============ -->
-        <div class="block user-block" @click="goFeature('个人中心')">
+        <div class="block user-block" @click="goProfile">
           <div class="avatar">{{ avatarText }}</div>
           <div class="user-info">
             <template v-if="!editing">
@@ -123,21 +123,23 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onBeforeUnmount, type PropType } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { moduleApi, entryApi } from '@/api'
-import type { Module, Entry } from '@/types'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { moduleApi, entryApi, identityApi } from '@/api'
+import { useUserStore } from '@/stores/user'
+import type { Module, Entry, ID } from '@/types'
 
 const props = defineProps({
   open: { type: Boolean, required: true },
-  anchor: { type: Object as PropType<HTMLElement | null>, required: true }
+  anchor: { type: Object as PropType<HTMLElement | null>, default: null }
 })
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const router = useRouter()
 const route = useRoute()
 const panelRef = ref<HTMLElement | null>(null)
+const userStore = useUserStore()
 
-// ============ 用户资料（localStorage 持久化） ============
+// ============ 用户资料：以后端 /me 为准，昵称签名本地补充 ============
 interface Profile {
   name: string
   signature: string
@@ -147,7 +149,7 @@ const loadProfile = (): Profile => {
   try {
     const raw = localStorage.getItem(PROFILE_KEY)
     if (raw) return { name: '学习者', signature: '今天也要加油学习', ...JSON.parse(raw) }
-  } catch (e) {
+  } catch {
     /* ignore */
   }
   return { name: '学习者', signature: '今天也要加油学习' }
@@ -156,6 +158,17 @@ const profile = reactive<Profile>(loadProfile())
 const draft = reactive<Profile>({ ...profile })
 const editing = ref(false)
 const avatarText = computed(() => profile.name.slice(0, 1).toUpperCase())
+
+// 展示名：后端昵称/用户名优先，本地编辑可覆盖
+watch(
+  () => userStore.user,
+  (u) => {
+    if (u && !localStorage.getItem(PROFILE_KEY)) {
+      profile.name = u.nickname || u.username
+    }
+  },
+  { immediate: true }
+)
 
 const startEdit = () => {
   draft.name = profile.name
@@ -171,7 +184,7 @@ const saveProfile = () => {
 
 // ============ 数据聚合（打开时拉取，缓存 5 分钟） ============
 interface PlanItem {
-  id: number
+  id: ID
   title: string
   progress: number
   moduleName: string
@@ -181,7 +194,7 @@ interface Stats {
   total: number
   mastered: number
   doing: number
-  segments: { id: number; count: number; color: string }[]
+  segments: { id: ID; count: number; color: string }[]
 }
 const stats = reactive<Stats>({ total: 0, mastered: 0, doing: 0, segments: [] })
 const plans = ref<PlanItem[]>([])
@@ -244,14 +257,14 @@ const fetchData = async () => {
   }
 }
 
-// ============ 功能入口 ============
+// ============ 功能入口（已有页面走真实路由，未上线的走占位页） ============
 const features = [
-  { icon: '📊', name: '统计' },
-  { icon: '📝', name: '笔记' },
-  { icon: '🎵', name: '音乐盒' },
+  { icon: '👤', name: '个人中心', path: '/profile' },
+  { icon: '🎵', name: '音乐盒', path: '/music' },
+  { icon: '📊', name: '统计', path: '/profile' },
+  { icon: '📝', name: '笔记', path: '/' },
   { icon: '📅', name: '计划' },
   { icon: '🔁', name: '复习' },
-  { icon: '👤', name: '个人中心' },
   { icon: '⚙️', name: '设置' },
   { icon: '🎨', name: '壁纸' }
 ]
@@ -259,14 +272,42 @@ const features = [
 // ============ 跳转 ============
 const goFeature = (name: string) => {
   emit('close')
-  router.push({ path: '/coming-soon', query: { name } })
+  const f = features.find((x) => x.name === name)
+  if (f?.path) router.push(f.path)
+  else router.push({ path: '/coming-soon', query: { name } })
 }
-const goEntry = (id: number) => {
+const goEntry = (id: ID) => {
   emit('close')
   router.push(`/entry/${id}`)
 }
-const handleLogout = () => {
-  ElMessage({ message: '当前是本地学习模式，无需退出登录', type: 'info' })
+const goProfile = () => {
+  emit('close')
+  router.push('/profile')
+}
+
+// ============ 真实登出：吊销 refresh token + 清本地凭证 ============
+const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '退出登录', {
+      type: 'warning',
+      confirmButtonText: '退出',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return
+  }
+  const refreshToken = localStorage.getItem('light_refresh_token')
+  try {
+    if (refreshToken) await identityApi.logout()
+  } catch {
+    /* 即使后端吊销失败也允许本地登出 */
+  }
+  localStorage.removeItem('light_access_token')
+  localStorage.removeItem('light_refresh_token')
+  userStore.reset()
+  emit('close')
+  ElMessage.success('已退出登录')
+  router.push('/login')
 }
 
 // ============ 定位（跟随头像按钮） ============
@@ -298,6 +339,7 @@ watch(
   () => props.open,
   (open) => {
     if (open) {
+      userStore.fetchMe()
       fetchData()
       updatePosition()
       requestAnimationFrame(updatePosition)
@@ -609,19 +651,19 @@ onBeforeUnmount(() => {
   border: none;
   background: transparent;
   padding: $space-xxs 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: $faint;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: $danger;
   cursor: pointer;
   text-align: left;
-  transition: color $dur-base ease;
+  transition: opacity $dur-base ease;
 
   span {
     margin-right: $space-xs;
   }
 
   &:hover {
-    color: $muted;
+    opacity: 0.75;
   }
 }
 

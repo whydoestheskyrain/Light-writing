@@ -2,7 +2,7 @@
 :root {
   --el-color-primary: #ea4c89;
   // 顶部导航高度：App 导航栏与全屏菜单抽屉共用
-  --vl-header-h: 83px;
+  --vl-header-h: 68px;
   --el-color-primary-light-3: #f07eaa;
   --el-color-primary-light-5: #f4a3c4;
   --el-color-primary-light-7: #f9c8dd;
@@ -351,4 +351,126 @@ li {
     -webkit-overflow-scrolling: touch;
     pre { margin: 0 -4px; }
   }
+}
+
+// ============================================================
+// 产品化设计增强（2.0 UI 精修）
+// ============================================================
+
+// ---- 品牌渐变 ----
+$brand-gradient: linear-gradient(135deg, #ea4c89 0%, #f0729f 45%, #7c5cff 100%);
+
+// ---- 页面通用头部 ----
+.page-head {
+  margin-bottom: 24px;
+
+  .page-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: $ink;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+  }
+  .page-sub {
+    font-size: 14px;
+    color: $muted;
+    margin: 0;
+  }
+}
+
+// ---- 统计胶囊（首页 hero / 模块头部使用）----
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: $radius-pill;
+  font-size: 13px;
+  color: $muted;
+  box-shadow: $shadow-sm;
+
+  strong {
+    color: $ink;
+    font-weight: 700;
+  }
+  .stat-icon {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 11px;
+
+    &.is-pink { background: rgba(234, 76, 137, 0.12); color: $primary; }
+    &.is-blue { background: rgba(79, 140, 255, 0.12); color: $c-note; }
+    &.is-green { background: rgba(0, 177, 80, 0.12); color: $success; }
+    &.is-purple { background: rgba(124, 92, 255, 0.12); color: $c-qa; }
+  }
+}
+
+// ---- 骨架屏 shimmer ----
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #efeff1;
+  border-radius: $radius-sm;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+    animation: skeleton-shimmer 1.4s infinite;
+  }
+}
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+// ---- 通用次级按钮（描边款，配合 btn-ink 主按钮） ----
+.btn-ghost {
+  height: 40px;
+  padding: 0 22px;
+  border: 1px solid $border;
+  border-radius: $radius-pill;
+  background: $bg-card;
+  color: $ink-soft;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color $dur-instant $ease-snap, background $dur-instant $ease-snap, transform $dur-fast;
+
+  &:hover {
+    border-color: $ink-soft;
+    background: $bg-subtle;
+  }
+  &:active { transform: scale(0.97); }
+}
+
+// ---- 主按钮粉色变体（品牌色 CTA） ----
+.btn-primary-gradient {
+  height: 40px;
+  padding: 0 24px;
+  border: none;
+  border-radius: $radius-pill;
+  background: $brand-gradient;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 6px 16px rgba(234, 76, 137, 0.28);
+  transition: transform $dur-fast $ease-snap, box-shadow $dur-fast, filter $dur-instant;
+
+  &:hover { filter: brightness(1.05); box-shadow: 0 8px 20px rgba(234, 76, 137, 0.36); }
+  &:active { transform: scale(0.97); }
 }

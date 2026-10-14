@@ -12,7 +12,10 @@ import type { FileMetadata } from '@/types'
  * blob URL 按 fileId 全局缓存，同一文件只拉一次。
  */
 
+// 稳定路径形如 /api/file/123/download；id 为字符串雪花 ID（19 位，超出 JS 安全整数）
 const FILE_PATH_RE = /^\/?api\/file\/(\d+)\/download$/
+// axios baseURL 已含 /api，发请求时要剥掉前缀，否则会拼成 /api/api/file/...
+const stripApiPrefix = (path: string) => path.replace(/^\/api(?=\/)/, '')
 
 // fileId -> blob:URL，会话级缓存（SPA 生命周期内复用，避免重复下载与闪烁）
 const blobUrlCache = new Map<string, string>()
@@ -44,7 +47,8 @@ export function resolveFileUrl(id: number | string): Promise<string> {
 
   const task = (async () => {
     // request 的响应拦截器对 responseType=blob 直接放行完整 AxiosResponse
-    const res = (await request.get(buildFileUrl(key), { responseType: 'blob' })) as unknown as AxiosResponse<Blob>
+    // 剥掉 /api 前缀：axios baseURL 已是 /api
+    const res = (await request.get(stripApiPrefix(buildFileUrl(key)), { responseType: 'blob' })) as unknown as AxiosResponse<Blob>
     const url = URL.createObjectURL(res.data)
     blobUrlCache.set(key, url)
     inflight.delete(key)
@@ -61,7 +65,13 @@ export async function resolveDisplayUrl(path?: string | null): Promise<string> {
   if (/^(https?:|data:|blob:)/.test(path)) return path
   const normalized = path.startsWith('/') ? path : `/${path}`
   const id = fileIdFromUrl(normalized)
-  return id ? resolveFileUrl(id) : normalized
+  if (!id) return normalized
+  try {
+    return await resolveFileUrl(id)
+  } catch {
+    // 401/404/网络错误等：返回空串，<img> 不渲染，组件降级显示占位
+    return ''
+  }
 }
 
 /**

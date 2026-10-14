@@ -51,7 +51,7 @@ import { entryApi, fileApi, moduleApi } from '@/api'
 import { primeLocalFile, replaceCachedFileUrls, warmupImagesFromMarkdown } from '@/utils/fileUrl'
 import type { Entry, EntryType, FileMetadata } from '@/types'
 
-const route = useRoute(); const router = useRouter(); const moduleId = Number(route.params.moduleId); const entryId = route.params.id ? Number(route.params.id) : null; const isEdit = !!entryId
+const route = useRoute(); const router = useRouter(); const moduleId = String(route.params.moduleId); const entryId = route.params.id ? String(route.params.id) : null; const isEdit = !!entryId
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 const toolbars: ToolbarNames[] = ['bold', 'underline', 'italic', '-', 'title', 'strikeThrough', 'quote', 'unorderedList', 'orderedList', 'task', '-', 'codeRow', 'code', 'link', 'image', 'table', '-', 'revoke', 'next', '=', 'pageFullscreen']
 const moduleName = ref(''); const formRef = ref<FormInstance>(); const saving = ref(false); const isDirty = ref(false); const lastSavedAt = ref(''); const editorMode = ref<'edit' | 'preview' | 'split'>('edit'); const attachments = ref<FileMetadata[]>([])

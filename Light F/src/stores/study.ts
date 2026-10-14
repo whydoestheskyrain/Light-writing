@@ -53,7 +53,8 @@ export const useStudyStore = defineStore('study', () => {
     learningApi.heartbeat({
       eventId: `${todayKey()}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       seconds: HEARTBEAT,
-      moduleId: currentModuleId.value ? Number(currentModuleId.value) : undefined
+      // moduleId 是雪花 ID 字符串，保持字符串透传，切勿 Number() 转换
+      moduleId: currentModuleId.value || undefined
     }).catch(() => { /* 后端暂不可用时保留本地记录 */ })
   }
 

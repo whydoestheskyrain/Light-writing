@@ -1,5 +1,9 @@
+// 后端主键为雪花算法生成的 Long（19 位），超出 JS 安全整数范围，
+// 统一由 Jackson 序列化为字符串，前端一律按 string 处理，禁止再用 Number() 转换。
+export type ID = string
+
 export interface Module {
-  id: number
+  id: ID
   name: string
   icon: string
   color: string
@@ -11,8 +15,8 @@ export interface Module {
 }
 
 export interface Entry {
-  id: number
-  moduleId: number
+  id: ID
+  moduleId: ID
   type: EntryType
   title: string
   contentMd: string
@@ -25,8 +29,8 @@ export interface Entry {
 }
 
 export interface FileMetadata {
-  id: number
-  entryId?: number | null
+  id: ID
+  entryId?: ID | null
   originalName: string
   objectKey: string
   contentType: string
@@ -45,7 +49,7 @@ export interface ApiResult<T> {
   data: T
 }
 export interface PageResult<T> { records: T[]; total: number; current: number; size: number; pages: number }
-export interface User { id: number; username: string; nickname: string; role: string }
+export interface User { id: ID; username: string; nickname: string; role: string }
 
 export interface AlgorithmData {
   leetcodeId?: string

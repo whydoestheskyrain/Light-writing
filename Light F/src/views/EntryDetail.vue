@@ -32,7 +32,7 @@ import { downloadAttachment, hydrateProtectedImages } from '@/utils/fileUrl'
 import type { AlgorithmData, Entry, FileMetadata } from '@/types'
 
 interface Heading { id: string; text: string; level: number }
-const route = useRoute(); const router = useRouter(); const entryId = Number(route.params.id)
+const route = useRoute(); const router = useRouter(); const entryId = String(route.params.id)
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true }); const entry = ref<Entry | null>(null); const moduleName = ref(''); const attachments = ref<FileMetadata[]>([]); const catalogOpen = ref(true); const contentRef = ref<HTMLElement | null>(null)
 const typeMap: Record<string, { label: string; color: string }> = { note: { label: '笔记', color: '#4f8cff' }, algorithm: { label: '算法', color: '#ea4c89' }, qa: { label: '八股', color: '#7c5cff' }, link: { label: '链接', color: '#0bb8b8' } }
 const typeLabel = computed(() => entry.value ? typeMap[entry.value.type]?.label || '笔记' : ''); const typeColor = computed(() => entry.value ? typeMap[entry.value.type]?.color || '#6e6d7a' : '#6e6d7a'); const tagList = computed(() => entry.value?.tags ? entry.value.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [])

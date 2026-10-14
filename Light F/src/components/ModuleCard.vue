@@ -11,7 +11,9 @@
       :alt="module.name"
       @error="onCoverError"
     />
-    <div v-else class="card-fallback" :style="{ background: module.color || '#ea4c89' }"></div>
+    <div v-else class="card-fallback" :style="{ background: module.color || '#ea4c89' }">
+      <span class="fallback-icon">{{ module.icon || '📁' }}</span>
+    </div>
 
     <el-dropdown trigger="click" @click.stop @command="handleCommand">
       <button class="menu-btn" @click.stop aria-label="更多操作">⋯</button>
@@ -96,22 +98,15 @@ const onCoverError = (e: Event) => {
   width: 100%;
   border-radius: 12px;
   overflow: hidden;
-  border: none;
+  border: 1px solid $border-soft;
   cursor: pointer;
   background: $bg-subtle;
   transition: transform $dur-base ease, box-shadow $dur-base ease, filter $dur-base ease;
 
   &:hover {
-    filter: brightness(1.06);
-    transform: translateY(-2px);
+    filter: brightness(1.03);
+    transform: translateY(-3px);
     box-shadow: $shadow-card;
-
-    .menu-btn {
-      opacity: 1;
-    }
-    .card-overlay {
-      opacity: 1;
-    }
   }
 }
 
@@ -131,29 +126,45 @@ const onCoverError = (e: Event) => {
   position: absolute;
   inset: 0;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fallback-icon {
+  font-size: 52px;
+  opacity: 0.55;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.15));
 }
 
 // ============ 右上角菜单 ============
 .menu-btn {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 10px;
+  right: 10px;
   z-index: 4;
   width: 32px;
   height: 32px;
   border: none;
   border-radius: 50%;
-  background: rgba(13, 12, 34, 0.45);
+  background: rgba(13, 12, 34, 0.42);
+  backdrop-filter: blur(4px);
   color: #fff;
   font-size: 17px;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s, background 0.2s;
+}
 
-  &:hover {
-    background: rgba(13, 12, 34, 0.7);
+// 触屏设备没有 hover，菜单保持常显；桌面端默认隐藏、hover 卡片时显示
+@media (hover: none) {
+  .menu-btn {
+    opacity: 1;
   }
+}
+.module-card:hover .menu-btn {
+  opacity: 1;
 }
 
 // ============ 常显统计角标（左下角） ============
@@ -179,21 +190,23 @@ const onCoverError = (e: Event) => {
   }
 }
 
-// ============ 底部渐变遮罩与文字（默认隐藏，hover 显示） ============
+// ============ 底部渐变遮罩与文字（常驻，hover 时略微加深） ============
 .card-overlay {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 3;
-  height: 50%;
-  padding: 12px 18px 14px;
-  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6));
+  height: 52%;
+  padding: 12px 16px 13px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(13,12,34,0.28) 45%, rgba(13,12,34,0.72) 100%);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  opacity: 0;
-  transition: opacity $dur-base ease;
+  transition: background $dur-base ease;
+}
+.module-card:hover .card-overlay {
+  background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(13,12,34,0.34) 45%, rgba(13,12,34,0.8) 100%);
 }
 
 .card-title {
