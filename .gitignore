@@ -1,5 +1,5 @@
 # ============================================================
-# Light 知识库项目根 .gitignore（单仓库管理 Light B / Light F / light-v2 / deploy）
+# Light 知识库项目根 .gitignore（仓库内容：Light F 前端 / light-v2 微服务后端 / deploy）
 # ============================================================
 
 # ===== 与项目无关的个人/临时文件（含明文凭据，禁止入库）=====
@@ -14,6 +14,9 @@
 /docx_output_inspect/
 /resume_original_render/
 /.trae/
+
+# v1 单体后端已退役，不再纳入版本管理（本地保留参考）
+/Light B/
 
 # ===== Java / Maven 构建产物 =====
 **/target/
