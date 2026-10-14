@@ -73,9 +73,11 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    # 故意不向宿主机发布端口：宿主机上已有本机 Nacos 占用 8848/9848，
-    # 发布会端口冲突。容器之间通过 light-net 内网用 nacos:8848 互访即可，
-    # 需要看控制台时用宿主机那个 Nacos 就行。
+    # 向宿主机发布控制台端口：8848 是 HTTP 控制台/API，9848 是 2.x 客户端 gRPC。
+    # 端口占用时（如本机另装了 Nacos）删除 ports 段即可，容器间仍可用 nacos:8848 互访。
+    ports:
+      - "8848:8848"
+      - "9848:9848"
     volumes:
       - nacos-data:/home/nacos/data
     networks:

@@ -7,7 +7,11 @@ import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRule;
 import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRuleManager;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.cloud.client.circuitbreaker.ReactiveCircuitBreakerFactory;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.reactive.DispatcherHandler;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -37,6 +41,17 @@ public class SentinelConfig {
     private static final double DEGRADE_RATIO = 0.5;
     private static final int MIN_REQUEST_AMOUNT = 5;
     private static final int TIME_WINDOW_SECONDS = 10;
+
+    /**
+     * 注册 Sentinel 版网关熔断过滤器，名称保持 "SpringCloudCircuitBreaker"，
+     * 与 application.yml 各路由的 filters 配置对应。Gateway 5.x 不再自带该名称的工厂。
+     */
+    @Bean
+    public SentinelCircuitBreakerGatewayFilterFactory sentinelCircuitBreakerGatewayFilterFactory(
+            ReactiveCircuitBreakerFactory<?, ?> reactiveCircuitBreakerFactory,
+            ObjectProvider<DispatcherHandler> dispatcherHandlerProvider) {
+        return new SentinelCircuitBreakerGatewayFilterFactory(reactiveCircuitBreakerFactory, dispatcherHandlerProvider);
+    }
 
     @PostConstruct
     public void init() {
