@@ -26,6 +26,78 @@
 | 网关 | Spring Cloud Gateway（WebFlux 反应式） |
 | 基础设施 | Docker Compose（MySQL / Redis / Nacos / 5 个应用容器一键启动） |
 
+### 版本清单
+
+以下版本号为当前构建实际解析的版本（`mvn dependency:list` / `npm ls` 核实），非声明范围。
+
+**本机开发环境**
+
+| 工具 | 版本 |
+|---|---|
+| JDK | Temurin OpenJDK 25.0.4.1 LTS |
+| Maven | 3.9.9 |
+| Node.js / npm | 24.14.1 / 11.11.0 |
+| Docker Engine / Compose | 29.7.2 / 5.4.0（WSL2 后端） |
+| Git | 2.54 |
+
+**后端框架与关键依赖（light-v2）**
+
+| 组件 | 版本 |
+|---|---|
+| Java（编译 release） | 25 |
+| Spring Boot | 4.1.1 |
+| Spring Framework | 7.0.9 |
+| Spring Cloud | 2025.1.3 |
+| Spring Cloud Alibaba | 2025.1.0.0 |
+| Spring Cloud Gateway（WebFlux） | 5.0.3 |
+| Spring Cloud Commons / LoadBalancer | 5.0.3 |
+| Nacos Client | 3.1.1 |
+| Sentinel Core | 1.8.9 |
+| MyBatis-Plus（`mybatis-plus-spring-boot4-starter`） | 3.5.16 |
+| JJWT | 0.12.6 |
+| Spring Security Crypto（仅 BCrypt） | 7.1.1 |
+| MySQL Connector/J | 9.7.0 |
+| Spring Data Redis / Lettuce | 4.1.1 / 7.5.2 |
+| 内嵌 Tomcat | 11.0.24 |
+| Reactor Core | 3.8.7 |
+| Jackson | 3.1.5（Boot 4 起包名迁移为 `tools.jackson`） |
+| Lombok | 1.18.46 |
+
+**前端依赖（Light F）**
+
+| 组件 | 版本 |
+|---|---|
+| Vue | 3.4.x |
+| TypeScript | 5.5.x |
+| Vite / vue-tsc | 5.3.x / 2.0.x |
+| Pinia / Vue Router | 2.1.x / 4.4.x |
+| Element Plus | 2.7.x |
+| Axios | 1.7.x |
+| md-editor-v3 / markdown-it | 4.17.x / 14.1.x |
+| ECharts | 6.1.x |
+| Sass | 1.77.x |
+
+**基础设施镜像（docker-compose.yml）**
+
+| 容器 | 镜像版本 | 宿主端口 |
+|---|---|---|
+| MySQL | mysql:8.4（LTS） | 3306 |
+| Redis | redis:7-alpine | 6379 |
+| Nacos | nacos/nacos-server:v2.4.3（standalone） | 8848 / 9848 |
+| 5 个应用服务 | eclipse-temurin:25-jre | 仅 gateway 8080 |
+
+**v1 → v2 版本演进**
+
+| 维度 | v1（已退役，本地保留） | v2（当前） |
+|---|---|---|
+| Java | 8 | 25 LTS |
+| Spring Boot | 2.7.18 | 4.1.1 |
+| 架构 | 单体、无用户体系 | 6 模块微服务 + Nacos + Gateway |
+| MyBatis-Plus | 3.4.3.4 | 3.5.16（boot4 starter） |
+| 认证 | 无 | JWT 双令牌 + Sentinel 限流熔断 |
+| 学习数据 | 浏览器 localStorage | 后端三表 + Redis 增量 |
+| 部署 | 单 jar | Compose 8 容器 |
+
 ## 系统架构
 
 ```
