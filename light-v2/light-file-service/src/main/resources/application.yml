@@ -1,0 +1,54 @@
+server:
+  port: 8103
+
+spring:
+  application:
+    name: light-file-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        enabled: ${NACOS_ENABLED:true}
+        register-enabled: ${NACOS_REGISTER_ENABLED:true}
+  jackson:
+    time-zone: GMT+8
+  # 文件上传限制（暂留默认，2.2.0 阶段会按业务调整）
+  servlet:
+    multipart:
+      max-file-size: ${FILE_MAX_SIZE:50MB}
+      max-request-size: ${FILE_MAX_REQUEST_SIZE:55MB}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:light_v2}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root123}
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:light-v2-development-secret-change-me-2026}
+
+light:
+  file:
+    storage-path: ${FILE_STORAGE_PATH:./data/uploads}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.light: debug
+    org.springframework: info

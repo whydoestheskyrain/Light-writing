@@ -1,0 +1,93 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: light-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        enabled: ${NACOS_ENABLED:true}
+        register-enabled: ${NACOS_REGISTER_ENABLED:true}
+    loadbalancer:
+      enabled: true
+    # Sentinel 网关限流降级响应（SentinelGatewayFilter 触发流控时返回）
+    sentinel:
+      scg:
+        fallback:
+          mode: response
+          response-status: 429
+          content-type: application/json
+          response-body: '{"code":429,"msg":"请求过于频繁，请稍后再试"}'
+    # Spring Cloud Gateway 2025.1+ 路由配置
+    # 属性前缀必须完整：spring.cloud.gateway.server.webflux.routes
+    #  1) 旧版 spring.cloud.gateway.routes 在 2025.1 已被静默忽略（拆出了 server-webflux / server-webmvc）
+    #  2) 该块必须挂在 spring.cloud 下。若误缩进到 security 等其它根节点，配置会被整体忽略、网关加载到 0 条路由
+    # uri 用 lb://服务名，由 Nacos 注册表 + Spring Cloud LoadBalancer 解析到具体实例。
+    # 每个路由挂 SpringCloudCircuitBreaker 过滤器：下游异常比例超阈值后熔断，fallbackUri 转发到本地降级响应。
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: identity-service
+              uri: lb://light-identity-service
+              predicates:
+                - Path=/api/identity/**
+              filters:
+                - name: SpringCloudCircuitBreaker
+                  args:
+                    name: identityServiceCB
+                    fallbackUri: forward:/fallback/identity
+            - id: knowledge-service
+              uri: lb://light-knowledge-service
+              predicates:
+                - Path=/api/knowledge/**,/api/module/**,/api/entry/**
+              filters:
+                - name: SpringCloudCircuitBreaker
+                  args:
+                    name: knowledgeServiceCB
+                    fallbackUri: forward:/fallback/knowledge
+            - id: file-service
+              uri: lb://light-file-service
+              predicates:
+                - Path=/api/file/**,/api/upload/**
+              filters:
+                - name: SpringCloudCircuitBreaker
+                  args:
+                    name: fileServiceCB
+                    fallbackUri: forward:/fallback/file
+            - id: learning-service
+              uri: lb://light-learning-service
+              predicates:
+                - Path=/api/learning/**
+              filters:
+                - name: SpringCloudCircuitBreaker
+                  args:
+                    name: learningServiceCB
+                    fallbackUri: forward:/fallback/learning
+  jackson:
+    time-zone: GMT+8
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:light-v2-development-secret-change-me-2026}
+
+# Actuator：网关本身也要被监控
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.light: debug
+    org.springframework.cloud.gateway: info

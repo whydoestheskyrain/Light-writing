@@ -1,0 +1,354 @@
+// ============ Element Plus 主题覆盖 ============
+:root {
+  --el-color-primary: #ea4c89;
+  // 顶部导航高度：App 导航栏与全屏菜单抽屉共用
+  --vl-header-h: 83px;
+  --el-color-primary-light-3: #f07eaa;
+  --el-color-primary-light-5: #f4a3c4;
+  --el-color-primary-light-7: #f9c8dd;
+  --el-color-primary-light-8: #fbdaea;
+  --el-color-primary-light-9: #fdecf4;
+  --el-color-primary-dark-2: #d6427b;
+  --el-color-success: #00b150;
+  --el-color-warning: #f7b500;
+  --el-color-danger: #ff4d4f;
+  --el-text-color-primary: #0d0c22;
+  --el-text-color-regular: #3d3d4e;
+  --el-border-color: #e7e7e9;
+  --el-border-color-light: #efefef;
+  --el-border-radius-base: 8px;
+  // 统一收敛 Element Plus 过渡时长（对齐 Dribbble 的快速响应）
+  --el-transition-duration: 0.2s;
+  --el-transition-duration-fast: 0.1s;
+  --el-font-family: 'Mona Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  font-family: $font-sans;
+  background: $bg-page;
+  color: $ink;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul,
+li {
+  list-style: none;
+}
+
+::selection {
+  background: rgba(234, 76, 137, 0.2);
+}
+
+// ============ 通用卡片 ============
+.vl-card {
+  background: $bg-card;
+  border-radius: $radius-md;
+  border: 1px solid $border-soft;
+  box-shadow: $shadow-sm;
+  // Dribbble 卡片不做位移；仅轻量阴影 / 描边过渡
+  transition: box-shadow $dur-base $ease-standard, border-color $dur-base $ease-standard;
+
+  &:hover {
+    box-shadow: 0 6px 16px rgba(13, 12, 34, 0.08);
+  }
+}
+
+// ============ 黑色主按钮（Dribbble 风格） ============
+.btn-ink {
+  height: 40px;
+  padding: 0 22px;
+  border: none;
+  border-radius: $radius-pill;
+  background: $ink;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  // 颜色极速反馈（50ms）；按压缩放快速回弹
+  transition: background $dur-instant $ease-snap, transform $dur-fast $ease-standard;
+
+  &:hover {
+    background: #3d3d4e;
+  }
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+// ============ Element Plus 组件微调 ============
+.el-button {
+  font-weight: 600;
+  border-radius: $radius-pill;
+
+  &--primary {
+    box-shadow: none;
+  }
+}
+
+.el-button.is-round {
+  border-radius: $radius-pill;
+}
+
+.el-input__wrapper {
+  border-radius: $radius-pill;
+}
+
+.el-radio-button__inner {
+  font-weight: 500;
+}
+
+.el-tag {
+  border-radius: $radius-sm;
+  font-weight: 500;
+}
+
+.el-dialog {
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+// ---- 弹窗：Dribbble 式快速淡入（0.2s，保留小位移入场） ----
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  animation-duration: 0.2s !important;
+}
+
+// ---- 下拉 / 气泡：快速 fade + 轻微位移（0.15s） ----
+.el-zoom-in-top-enter-active,
+.el-zoom-in-top-leave-active,
+.el-zoom-in-bottom-enter-active,
+.el-zoom-in-bottom-leave-active,
+.el-zoom-in-left-enter-active,
+.el-zoom-in-left-leave-active,
+.el-zoom-in-right-enter-active,
+.el-zoom-in-right-leave-active,
+.el-fade-in-linear-enter-active,
+.el-fade-in-linear-leave-active {
+  transition-duration: 0.15s !important;
+}
+.el-zoom-in-top-enter-from,
+.el-zoom-in-top-leave-to {
+  transform: translateY(-4px) !important;
+}
+.el-zoom-in-bottom-enter-from,
+.el-zoom-in-bottom-leave-to {
+  transform: translateY(4px) !important;
+}
+
+// ---- 顶部消息：0.2s ----
+.el-message-enter-active,
+.el-message-leave-active {
+  transition-duration: 0.2s !important;
+}
+.el-message {
+  border-radius: $radius-md;
+}
+
+// ---- 输入框聚焦：快速过渡 ----
+.el-input__wrapper,
+.el-textarea__inner {
+  transition: box-shadow 0.15s $ease-standard;
+}
+
+// ============ 滚动条 ============
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d6d6d8;
+  border-radius: $radius-pill;
+  border: 2px solid $bg-page;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bfbfc2;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// ============ 暗色模式 ============
+.dark {
+  background: #0d0d0d;
+  color: #e8e8e8;
+
+  .vl-card,
+  .module-header,
+  .edit-card,
+  .detail-card {
+    background: #1a1a1a !important;
+    border-color: #2a2a2a !important;
+  }
+
+  .vl-header {
+    background: #141414 !important;
+    border-color: #262626 !important;
+  }
+
+  .md-content {
+    color: #cfcfcf;
+
+    code {
+      background: #2a2a2a;
+    }
+    th {
+      background: #222;
+    }
+    th,
+    td {
+      border-color: #333;
+    }
+  }
+}
+
+// ============ Markdown 内容区 ============
+.md-content {
+  line-height: 1.85;
+  color: $ink-soft;
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 28px 0 14px;
+    font-weight: 700;
+    color: $ink;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  h2 {
+    font-size: 23px;
+  }
+  h3 {
+    font-size: 19px;
+  }
+  p {
+    margin: 14px 0;
+  }
+  code {
+    background: #f4f4f3;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+  }
+  pre {
+    background: #1c1b22;
+    color: #d7d7db;
+    padding: 18px 20px;
+    border-radius: $radius-md;
+    overflow-x: auto;
+
+    code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+  }
+  blockquote {
+    border-left: 3px solid $primary;
+    padding: 4px 0 4px 16px;
+    color: $muted;
+    margin: 16px 0;
+  }
+  ul,
+  ol {
+    padding-left: 26px;
+    margin: 14px 0;
+  }
+  li {
+    list-style: revert;
+    margin: 6px 0;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 14px;
+
+    th,
+    td {
+      border: 1px solid $border;
+      padding: 9px 14px;
+      text-align: left;
+    }
+    th {
+      background: #fafafa;
+      font-weight: 600;
+    }
+  }
+  a {
+    color: $primary;
+    font-weight: 500;
+  }
+  img {
+    max-width: 100%;
+    border-radius: $radius-sm;
+  }
+}
+
+// ============ 全局响应式断点 ============
+// 平板/大手机：导航收缩
+@media (max-width: 768px) {
+  :root { --vl-header-h: 60px; }
+}
+@media (max-width: 400px) {
+  :root { --vl-header-h: 56px; }
+}
+
+// 小屏设备通用密度收敛
+@media (max-width: 768px) {
+  body { font-size: 14px; }
+  // Element Plus 消息提示不贴边
+  .el-message { min-width: 0 !important; max-width: calc(100vw - 32px); }
+  // 弹窗 / 确认框手机端宽度（默认 50% 在 320px 屏只剩 ~160px）
+  .el-dialog { width: 90% !important; }
+  .el-message-box { width: 85% !important; max-width: 360px; }
+}
+
+// 条目详情：两个操作按钮手机端等分（全局规则，规避 scoped 匹配问题）
+@media (max-width: 768px) {
+  .detail-header .header-actions .el-button,
+  .detail-header .header-actions .btn-ink {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    width: auto !important;
+    margin-left: 0 !important;
+    justify-content: center;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+// 手机上禁用 iOS 输入框聚焦放大：输入字号不小于 16px 由各组件保证；
+// 表格类内容横向滚动兜底
+@media (max-width: 640px) {
+  .md-content {
+    -webkit-overflow-scrolling: touch;
+    pre { margin: 0 -4px; }
+  }
+}

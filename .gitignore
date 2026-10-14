@@ -1,0 +1,63 @@
+# ============================================================
+# Light 知识库项目根 .gitignore（单仓库管理 Light B / Light F / light-v2 / deploy）
+# ============================================================
+
+# ===== 与项目无关的个人/临时文件（含明文凭据，禁止入库）=====
+/askpass.ps1
+/-w
+/deploy.zip
+/edit_resume.py
+/resume_preview.png
+/resume_working_copy.docx
+/tmp/
+/docx_inspect/
+/docx_output_inspect/
+/resume_original_render/
+/.trae/
+
+# ===== Java / Maven 构建产物 =====
+**/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+.hprof
+
+# ===== Node / 前端构建产物 =====
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== 用户上传文件与运行时数据 =====
+**/uploads/
+
+# ===== 环境变量与密钥（.env.example 保留为模板）=====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# ===== 日志 =====
+*.log
+logs/
+
+# ===== IDE / 编辑器 =====
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.settings/
+.project
+.classpath
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db

@@ -1,0 +1,57 @@
+server:
+  port: 8104
+
+spring:
+  application:
+    name: light-learning-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        enabled: ${NACOS_ENABLED:true}
+        register-enabled: ${NACOS_REGISTER_ENABLED:true}
+  jackson:
+    time-zone: GMT+8
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:light_v2}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root123}
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+  # Redis 心跳增量（docker-compose 内网用服务名 redis，本地开发用 127.0.0.1）
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:dev-only-password}
+      timeout: 2s
+
+light:
+  learning:
+    # 定时任务把 Redis 增量刷到聚合表的间隔
+    flush-interval-ms: ${LEARNING_FLUSH_INTERVAL_MS:60000}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:light-v2-development-secret-change-me-2026}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.light: debug
+    org.springframework: info

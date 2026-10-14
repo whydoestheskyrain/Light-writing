@@ -1,0 +1,47 @@
+server:
+  port: 8101
+
+spring:
+  application:
+    name: light-identity-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        enabled: ${NACOS_ENABLED:true}
+        register-enabled: ${NACOS_REGISTER_ENABLED:true}
+  jackson:
+    time-zone: GMT+8
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:light_v2}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASS:root123}
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:light-v2-development-secret-change-me-2026}
+    access-ttl: ${JWT_ACCESS_TTL:PT2H}
+
+# Actuator 暴露健康检查，gateway 后续可据此做存活探活
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.light: debug
+    org.springframework: info

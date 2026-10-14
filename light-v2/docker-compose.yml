@@ -1,0 +1,217 @@
+# 知识管理平台 2.0 —— 本地全栈基础设施 + 微服务
+# 一键启动：docker compose up -d --build
+# 停止：    docker compose down
+# 清数据：  docker compose down -v
+#
+# 容器互访规则：容器内访问其它容器一律用【服务名】而不是 127.0.0.1。
+# 127.0.0.1 在容器内指向容器自身，这是"本地能跑、进 Docker 全挂"的头号原因。
+# 所以下面统一通过环境变量覆盖各服务 yml 的默认值：
+#   DB_HOST=mysql        -> spring.datasource
+#   NACOS_SERVER_ADDR=nacos:8848 -> spring.cloud.nacos.discovery
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: light-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: ${DB_NAME:-light_v2}
+      TZ: ${TZ:-Asia/Shanghai}
+    command:
+      # utf8mb4 支持完整 emoji； innodb_buffer_pool_size 给小开发机留小点
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --innodb-buffer-pool-size=256M
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - light-net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: light-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-dev-only-password}
+    # Compose 在数组形式下不会经过 shell 展开，使用 Compose 变量插值传入实际密码。
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-dev-only-password}"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - light-net
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD:-dev-only-password} ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 服务注册与发现中心。gateway 的 lb://服务名 路由依赖它把请求解析到具体实例。
+  nacos:
+    image: nacos/nacos-server:v2.4.3
+    container_name: light-nacos
+    restart: unless-stopped
+    environment:
+      MODE: standalone          # 单机模式，内嵌 derby 存储，开发够用
+      PREFER_HOST_MODE: hostname
+      NACOS_AUTH_ENABLE: "false" # 开发环境关闭鉴权，避免 key/identity 配置负担
+      TZ: ${TZ:-Asia/Shanghai}
+    # 关键：Nacos 单机模式冷启动需 30-60s，期间 gRPC 端口未就绪。
+    # 用就绪探针让应用等到真正可服务再启动，否则注册会以
+    # "ErrCode:-401 Client not connected, status:STARTING" 失败并打挂整个 Spring 启动。
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8848/nacos/v1/console/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    # 故意不向宿主机发布端口：宿主机上已有本机 Nacos 占用 8848/9848，
+    # 发布会端口冲突。容器之间通过 light-net 内网用 nacos:8848 互访即可，
+    # 需要看控制台时用宿主机那个 Nacos 就行。
+    volumes:
+      - nacos-data:/home/nacos/data
+    networks:
+      - light-net
+
+  # ===== 业务微服务：只暴露 gateway 到宿主机，其余仅在内网互通 =====
+  # 只有 gateway 对外发布端口，符合"单一入口"的微服务惯例，也避免和宿主机端口冲突。
+  light-gateway:
+    build: ./light-gateway
+    container_name: light-gateway
+    depends_on:
+      nacos:
+        condition: service_healthy
+    environment:
+      GATEWAY_PORT: 8080
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "8080:8080"
+    networks:
+      - light-net
+
+  light-identity-service:
+    build: ./light-identity-service
+    container_name: light-identity-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-light_v2}
+      DB_USER: ${DB_USER:-root}
+      DB_PASS: ${MYSQL_ROOT_PASSWORD:-root123}
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
+      TZ: ${TZ:-Asia/Shanghai}
+    networks:
+      - light-net
+
+  light-knowledge-service:
+    build: ./light-knowledge-service
+    container_name: light-knowledge-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-light_v2}
+      DB_USER: ${DB_USER:-root}
+      DB_PASS: ${MYSQL_ROOT_PASSWORD:-root123}
+      # Redis 缓存：容器内必须用服务名 redis，不能用 127.0.0.1
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-dev-only-password}
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
+      TZ: ${TZ:-Asia/Shanghai}
+    networks:
+      - light-net
+
+  light-file-service:
+    build: ./light-file-service
+    container_name: light-file-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-light_v2}
+      DB_USER: ${DB_USER:-root}
+      DB_PASS: ${MYSQL_ROOT_PASSWORD:-root123}
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
+      # 上传文件落盘位置，容器内路径，配合下面 volumes 持久化
+      FILE_STORAGE_PATH: /app/data/uploads
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - uploads-data:/app/data/uploads
+    networks:
+      - light-net
+
+  light-learning-service:
+    build: ./light-learning-service
+    container_name: light-learning-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-light_v2}
+      DB_USER: ${DB_USER:-root}
+      DB_PASS: ${MYSQL_ROOT_PASSWORD:-root123}
+      # Redis 心跳增量：容器内必须用服务名 redis，不能用 127.0.0.1
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-dev-only-password}
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
+      TZ: ${TZ:-Asia/Shanghai}
+    networks:
+      - light-net
+
+volumes:
+  mysql-data:
+  redis-data:
+  nacos-data:
+  uploads-data:
+
+networks:
+  light-net:
+    driver: bridge
