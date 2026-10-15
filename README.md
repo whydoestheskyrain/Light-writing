@@ -22,9 +22,11 @@
 | 后端 | Java 25 (LTS)、Spring Boot 4.1.x、Spring Framework 7、Spring Cloud 2025.1.x、Spring Cloud Alibaba 2025.1.x |
 | 安全 | JJWT 0.12、BCrypt 密码加密、网关统一鉴权过滤器 |
 | 数据 | MySQL 8.4、MyBatis-Plus 3.5、Redis 7 |
-| 注册中心 | Nacos 2.4（服务发现 + `lb://` 负载均衡） |
+| 注册 / 配置中心 | Nacos 3.2（服务发现 + 配置中心 + `lb://` 负载均衡） |
 | 网关 | Spring Cloud Gateway（WebFlux 反应式） |
-| 基础设施 | Docker Compose（MySQL / Redis / Nacos / 5 个应用容器一键启动） |
+| 限流熔断 | Sentinel 1.8（规则外置 Nacos，动态热更新） |
+| 监控 | Micrometer + Prometheus + Grafana |
+| 基础设施 | Docker Compose（MySQL / Redis / Nacos / 5 应用 / Prometheus / Grafana 一键启动） |
 
 ### 版本清单
 
@@ -83,8 +85,10 @@
 |---|---|---|
 | MySQL | mysql:8.4（LTS） | 3306 |
 | Redis | redis:7-alpine | 6379 |
-| Nacos | nacos/nacos-server:v2.4.3（standalone） | 8848 / 9848 |
-| 5 个应用服务 | eclipse-temurin:25-jre | 仅 gateway 8080 |
+| Nacos | nacos/nacos-server:v3.2.4（standalone，关闭鉴权） | 8848 / 9848 / 9849 |
+| 5 个应用服务 | maven:3.9-temurin-25 构建 → eclipse-temurin:25-jre 运行（多阶段） | 仅 gateway 8080 |
+| Prometheus | prom/prometheus:v2.54.1 | 9090 |
+| Grafana | grafana/grafana:11.2.0（admin/admin） | 3000 |
 
 **v1 → v2 版本演进**
 
@@ -96,7 +100,7 @@
 | MyBatis-Plus | 3.4.3.4 | 3.5.16（boot4 starter） |
 | 认证 | 无 | JWT 双令牌 + Sentinel 限流熔断 |
 | 学习数据 | 浏览器 localStorage | 后端三表 + Redis 增量 |
-| 部署 | 单 jar | Compose 8 容器 |
+| 部署 | 单 jar | Compose 10 容器（含监控栈） |
 
 ## 系统架构
 
@@ -154,8 +158,15 @@ cd light-v2
 docker compose up -d --build
 ```
 
-启动 8 个容器：MySQL、Redis、Nacos + Gateway 与 4 个业务服务。
+启动 10 个容器：MySQL、Redis、Nacos、Prometheus、Grafana + Gateway 与 4 个业务服务。
 首次启动会自动建表（各服务 `classpath:db/schema.sql`）并创建默认用户。
+
+Nacos 数据卷为空时（首次启动或执行过 `docker compose down -v`），需要灌入一份中心配置：
+
+```powershell
+pwsh ./nacos-config/publish.ps1
+# 发布 application-common.yml（共享配置）与两份 Sentinel 规则到 Nacos
+```
 
 验证：
 
@@ -163,6 +174,19 @@ docker compose up -d --build
 curl http://localhost:8080/api/identity/ping
 # {"code":0,"data":{"service":"identity",...}}
 ```
+
+### 监控与控制台
+
+| 入口 | 地址 | 说明 |
+|---|---|---|
+| 应用 | http://localhost:5173 | 前端页面（light / 123456） |
+| 网关 | http://localhost:8080 | 唯一业务入口 |
+| Nacos 控制台 | http://localhost:8088 | Nacos 3.x 控制台独立在容器 8080（映射宿主 8088）；8848 仅为 API 端口 |
+| Prometheus | http://localhost:9090 | Status → Targets 查看 5 个服务抓取状态 |
+| Grafana | http://localhost:3000 | admin / admin，Prometheus 数据源已自动配好 |
+
+Sentinel 限流 / 熔断规则在 Nacos 控制台「配置管理 → SENTINEL_GROUP」中维护：
+`light-gateway-gw-flow.json`（各路由 QPS）、`light-gateway-degrade.json`（异常比例熔断），发布后秒级热更新，无需重启网关。
 
 ### 2. 启动前端
 
@@ -206,8 +230,10 @@ npm run dev
 | GET/POST/PUT/DELETE | `/api/entry/**` | 条目管理（含 `/tags`、`PATCH /{id}/status`） |
 | POST | `/api/file/upload` | 上传文件（multipart/form-data） |
 | GET | `/api/file/{id}/download` | 下载文件（需 JWT，前端走 blob 通道） |
-| POST | `/api/learning/heartbeat` | 上报学习时长 |
-| GET | `/api/learning/summary?range=today` | 学习汇总 |
+| POST | `/api/learning/heartbeat` | 上报学习时长（eventId 幂等、按秒数 INCRBY） |
+| GET | `/api/learning/summary?range=today` | 学习汇总（合并 Redis 未刷库增量，实时可见） |
+| GET | `/api/learning/modules?range=all` | 按模块聚合学习时长（饼图） |
+| DELETE | `/api/file/entry/{entryId}` | 删除条目下全部附件（knowledge 级联调用） |
 
 ## 开发约定
 
@@ -222,3 +248,5 @@ npm run dev
 - Spring Cloud 2025.1 网关路由属性前缀为 `spring.cloud.gateway.server.webflux.routes`（旧前缀已被忽略）
 - `lb://` 路由必须引入 `spring-cloud-starter-loadbalancer`，否则网关返回 503
 - 容器内访问其它容器一律使用服务名（如 `mysql`、`nacos`），不能使用 `127.0.0.1`
+- Nacos 服务端必须用 3.x：SCA 2025.1 自带 nacos-client 3.1.1，其配置模块走 v3 协议，对接 2.x 服务端时配置查询静默返回空（服务发现却正常，极易误判）
+- 多阶段 Docker 构建在容器内用 Maven 打包，已通过 `docker/maven-settings.xml` 指定阿里云镜像，避免直连 Maven Central 握手中断

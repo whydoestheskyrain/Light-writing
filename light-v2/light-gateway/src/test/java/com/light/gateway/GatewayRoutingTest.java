@@ -1,6 +1,8 @@
 package com.light.gateway;
 
 import com.sun.net.httpserver.HttpServer;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +11,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -17,6 +20,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -32,6 +37,22 @@ class GatewayRoutingTest {
     Environment environment;
 
     private final HttpClient client = HttpClient.newHttpClient();
+
+    /** 与 JwtGlobalFilter 默认密钥一致，测试请求携带合法 Bearer Token 才能穿过全局鉴权 */
+    private static final SecretKey JWT_KEY = Keys.hmacShaKeyFor(
+            "light-v2-development-secret-change-me-2026".getBytes(StandardCharsets.UTF_8));
+
+    private static String bearerToken() {
+        Instant now = Instant.now();
+        return "Bearer " + Jwts.builder()
+                .subject("1")
+                .claim("username", "test")
+                .claim("role", "USER")
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(Duration.ofHours(1))))
+                .signWith(JWT_KEY)
+                .compact();
+    }
 
     @DynamicPropertySource
     static void downstreamUrls(DynamicPropertyRegistry registry) throws IOException {
@@ -55,18 +76,11 @@ class GatewayRoutingTest {
             });
             server.start();
             DOWNSTREAMS.put(service, server);
+            // 与 application.yml 中 uri 上的 ${xxx_SERVICE_URL:lb://...} 占位符对应，
+            // 直接覆盖 routes[i].uri 会让 Binder 用仅含 uri 的列表整体替换 YAML 列表，导致 predicates 丢失。
             registry.add(service + "_SERVICE_URL",
                     () -> "http://127.0.0.1:" + server.getAddress().getPort());
         }
-        registry.add("spring.cloud.gateway.server.webflux.routes[0].uri",
-                () -> DOWNSTREAMS.get("identity").getAddress().getPort() == 0 ? "http://localhost:1"
-                        : "http://127.0.0.1:" + DOWNSTREAMS.get("identity").getAddress().getPort());
-        registry.add("spring.cloud.gateway.server.webflux.routes[1].uri",
-                () -> "http://127.0.0.1:" + DOWNSTREAMS.get("knowledge").getAddress().getPort());
-        registry.add("spring.cloud.gateway.server.webflux.routes[2].uri",
-                () -> "http://127.0.0.1:" + DOWNSTREAMS.get("file").getAddress().getPort());
-        registry.add("spring.cloud.gateway.server.webflux.routes[3].uri",
-                () -> "http://127.0.0.1:" + DOWNSTREAMS.get("learning").getAddress().getPort());
     }
 
     @AfterAll
@@ -113,6 +127,7 @@ class GatewayRoutingTest {
         int port = environment.getRequiredProperty("local.server.port", Integer.class);
         var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
                 .timeout(Duration.ofSeconds(10))
+                .header("Authorization", bearerToken())
                 .header("Content-Type", "application/json")
                 .method(method, body == null ? HttpRequest.BodyPublishers.noBody()
                         : HttpRequest.BodyPublishers.ofString(body)).build();

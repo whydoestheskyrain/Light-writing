@@ -67,5 +67,8 @@ export const identityApi = {
 export const learningApi = {
   heartbeat: (data: { eventId: string; seconds: number; moduleId?: ID }) => request.post<unknown, ApiResult<void>>('/learning/heartbeat', data),
   summary: (range = 'today') => request.get<unknown, ApiResult<any>>('/learning/summary', { params: { range } }),
-  records: () => request.get<unknown, ApiResult<any[]>>('/learning/records')
+  records: () => request.get<unknown, ApiResult<any[]>>('/learning/records'),
+  // 按模块聚合的学习时长 [{ moduleId, seconds }]
+  modules: (range: 'today' | 'week' | 'all' = 'all') =>
+    request.get<unknown, ApiResult<{ moduleId: ID; seconds: number }[]>>('/learning/modules', { params: { range } })
 }

@@ -1,4 +1,4 @@
-# 知识管理平台 2.0 —— 本地全栈基础设施 + 微服务
+﻿﻿# 知识管理平台 2.0 —— 本地全栈基础设施 + 微服务
 # 一键启动：docker compose up -d --build
 # 停止：    docker compose down
 # 清数据：  docker compose down -v
@@ -56,28 +56,40 @@ services:
 
   # 服务注册与发现中心。gateway 的 lb://服务名 路由依赖它把请求解析到具体实例。
   nacos:
-    image: nacos/nacos-server:v2.4.3
+    # 必须 3.x：spring-cloud-alibaba 2025.1 自带 nacos-client 3.1.1，其配置模块走 v3 接口；
+    # 对接 2.x 服务端时 config 查询会静默返回空（注册不受影响）。3.x 服务端向下兼容老客户端。
+    image: nacos/nacos-server:v3.2.4
     container_name: light-nacos
     restart: unless-stopped
     environment:
       MODE: standalone          # 单机模式，内嵌 derby 存储，开发够用
       PREFER_HOST_MODE: hostname
-      NACOS_AUTH_ENABLE: "false" # 开发环境关闭鉴权，避免 key/identity 配置负担
+      # Nacos 3.x 鉴权拆成三层：server（SDK gRPC）/ admin（管理 API）/ console（控制台 API）
+      # 开发环境全部关闭；上生产时改为 true 并配置 token、identity 白名单
+      NACOS_AUTH_ENABLE: "false"
+      NACOS_AUTH_ADMIN_ENABLE: "false"
+      NACOS_AUTH_CONSOLE_ENABLE: "false"
+      # 镜像启动脚本即使鉴权关闭也强制校验该变量存在，给占位值即可（鉴权关闭时不会使用）
+      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:-VkFDS0FfREVWX1RPS0VOWElOR1RPTUdFTkVFU09MTFlVVFNIT1VTTERCRVNFVE9SQUdF}
+      NACOS_AUTH_IDENTITY_KEY: ${NACOS_AUTH_IDENTITY_KEY:-dev-identity}
+      NACOS_AUTH_IDENTITY_VALUE: ${NACOS_AUTH_IDENTITY_VALUE:-dev-identity-value}
       TZ: ${TZ:-Asia/Shanghai}
     # 关键：Nacos 单机模式冷启动需 30-60s，期间 gRPC 端口未就绪。
-    # 用就绪探针让应用等到真正可服务再启动，否则注册会以
-    # "ErrCode:-401 Client not connected, status:STARTING" 失败并打挂整个 Spring 启动。
+    # 用就绪探针让应用等到真正可服务再启动，否则注册/拉配置会在 STARTING 期失败。
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8848/nacos/v1/console/health/readiness || exit 1"]
+      # Nacos 3.x 已移除 v1 readiness 端点，用 v3 core/state 判断服务就绪
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8848/nacos/v3/admin/core/state | grep -q '\"code\":0' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 30s
-    # 向宿主机发布控制台端口：8848 是 HTTP 控制台/API，9848 是 2.x 客户端 gRPC。
-    # 端口占用时（如本机另装了 Nacos）删除 ports 段即可，容器间仍可用 nacos:8848 互访。
+    # Nacos 3.x 端口分工：8080 是 Web 控制台（映射到宿主 8088，宿主 8080 已给网关）；
+    # 8848 是服务端 HTTP API；9848/9849 是客户端 gRPC。
     ports:
+      - "8088:8080"
       - "8848:8848"
       - "9848:9848"
+      - "9849:9849"
     volumes:
       - nacos-data:/home/nacos/data
     networks:
@@ -86,7 +98,9 @@ services:
   # ===== 业务微服务：只暴露 gateway 到宿主机，其余仅在内网互通 =====
   # 只有 gateway 对外发布端口，符合"单一入口"的微服务惯例，也避免和宿主机端口冲突。
   light-gateway:
-    build: ./light-gateway
+    build:
+      context: .
+      dockerfile: light-gateway/Dockerfile
     container_name: light-gateway
     depends_on:
       nacos:
@@ -94,8 +108,9 @@ services:
     environment:
       GATEWAY_PORT: 8080
       NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
-      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      # Nacos 默认关闭鉴权，不传用户名；开启鉴权时在 .env 配置 NACOS_USERNAME/NACOS_PASSWORD
+      NACOS_USERNAME: ${NACOS_USERNAME:-}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       TZ: ${TZ:-Asia/Shanghai}
@@ -105,7 +120,9 @@ services:
       - light-net
 
   light-identity-service:
-    build: ./light-identity-service
+    build:
+      context: .
+      dockerfile: light-identity-service/Dockerfile
     container_name: light-identity-service
     depends_on:
       mysql:
@@ -119,15 +136,17 @@ services:
       DB_USER: ${DB_USER:-root}
       DB_PASS: ${MYSQL_ROOT_PASSWORD:-root123}
       NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
-      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      NACOS_USERNAME: ${NACOS_USERNAME:-}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
       TZ: ${TZ:-Asia/Shanghai}
     networks:
       - light-net
 
   light-knowledge-service:
-    build: ./light-knowledge-service
+    build:
+      context: .
+      dockerfile: light-knowledge-service/Dockerfile
     container_name: light-knowledge-service
     depends_on:
       mysql:
@@ -147,15 +166,17 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-dev-only-password}
       NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
-      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      NACOS_USERNAME: ${NACOS_USERNAME:-}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
       TZ: ${TZ:-Asia/Shanghai}
     networks:
       - light-net
 
   light-file-service:
-    build: ./light-file-service
+    build:
+      context: .
+      dockerfile: light-file-service/Dockerfile
     container_name: light-file-service
     depends_on:
       mysql:
@@ -169,8 +190,8 @@ services:
       DB_USER: ${DB_USER:-root}
       DB_PASS: ${MYSQL_ROOT_PASSWORD:-root123}
       NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
-      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      NACOS_USERNAME: ${NACOS_USERNAME:-}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
       # 上传文件落盘位置，容器内路径，配合下面 volumes 持久化
       FILE_STORAGE_PATH: /app/data/uploads
@@ -181,7 +202,9 @@ services:
       - light-net
 
   light-learning-service:
-    build: ./light-learning-service
+    build:
+      context: .
+      dockerfile: light-learning-service/Dockerfile
     container_name: light-learning-service
     depends_on:
       mysql:
@@ -201,10 +224,44 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-dev-only-password}
       NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
-      NACOS_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      NACOS_USERNAME: ${NACOS_USERNAME:-}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:-light-v2-development-secret-change-me-2026}
       TZ: ${TZ:-Asia/Shanghai}
+    networks:
+      - light-net
+
+  # ===== 监控：Prometheus 采集 + Grafana 展示 =====
+  # Prometheus: http://localhost:9090 （Status > Targets 看抓取状态）
+  # Grafana:    http://localhost:3000  （admin / admin，数据源已自动配好）
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: light-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - light-net
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: light-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      # 启动时自动注入 Prometheus 数据源
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
     networks:
       - light-net
 
@@ -213,6 +270,8 @@ volumes:
   redis-data:
   nacos-data:
   uploads-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   light-net:

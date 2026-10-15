@@ -53,7 +53,7 @@
             </div>
             <div class="stat-meta">
               <div class="stat-label">今日学习</div>
-              <div class="stat-value">{{ study.format(study.todaySeconds) }}</div>
+              <div class="stat-value">{{ study.format(serverStats.today) }}</div>
             </div>
           </div>
           <div class="stat-card">
@@ -65,7 +65,7 @@
             </div>
             <div class="stat-meta">
               <div class="stat-label">累计学习</div>
-              <div class="stat-value">{{ study.format(study.totalSeconds) }}</div>
+              <div class="stat-value">{{ study.format(serverStats.total) }}</div>
             </div>
           </div>
           <div class="stat-card">
@@ -78,7 +78,7 @@
             </div>
             <div class="stat-meta">
               <div class="stat-label">连续打卡</div>
-              <div class="stat-value">{{ study.streakDays }} <span class="stat-unit">天</span></div>
+              <div class="stat-value">{{ serverStats.streak }} <span class="stat-unit">天</span></div>
             </div>
           </div>
         </div>
@@ -190,7 +190,7 @@
           <div class="setting-row danger" @click="handleLogout">
             <div>
               <div class="s-label">退出登录</div>
-              <div class="s-desc">本地学习模式，无需真正退出</div>
+              <div class="s-desc">清除本机登录状态，返回登录页</div>
             </div>
             <span class="s-arrow">›</span>
           </div>
@@ -211,7 +211,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { useStudyStore } from '@/stores/study'
 
 echarts.use([PieChart, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
-import { moduleApi, entryApi } from '@/api'
+import { moduleApi, entryApi, identityApi, learningApi } from '@/api'
 import { wallpapers, wallIndex, pickWallpaper } from '@/config/wallpapers'
 import type { Module, Entry, ID } from '@/types'
 
@@ -219,11 +219,32 @@ const study = useStudyStore()
 const router = useRouter()
 const route = useRoute()
 
-// ============ 学习数据 ============
+// ============ 学习数据（优先用后端 learning 服务，localStorage 仅作离线兜底） ============
 interface ModuleStat { id: string; name: string; color: string; seconds: number; percent: number }
 type PieRange = 'today' | 'week' | 'all'
 
-const weekData = computed(() => study.last7Days())
+// 服务端汇总：今日/累计/连续
+const serverStats = reactive({ today: 0, total: 0, streak: 0, loaded: false })
+// 服务端近 7 天记录：date(yyyy-MM-dd) -> 秒
+const weekRecords = ref<Record<string, number>>({})
+
+const weekData = computed(() => {
+  // 服务端有数据时用服务端，否则退回本地 localStorage
+  if (serverStats.loaded && Object.keys(weekRecords.value).length) {
+    const out: { date: string; label: string; seconds: number }[] = []
+    const week = ['日', '一', '二', '三', '四', '五', '六']
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const m = (d.getMonth() + 1).toString().padStart(2, '0')
+      const day = d.getDate().toString().padStart(2, '0')
+      const key = `${d.getFullYear()}-${m}-${day}`
+      out.push({ date: key, label: i === 0 ? '今天' : `周${week[d.getDay()]}`, seconds: weekRecords.value[key] || 0 })
+    }
+    return out
+  }
+  return study.last7Days()
+})
 const moduleStats = ref<ModuleStat[]>([])
 const pieRange = ref<PieRange>('all')
 const pieRanges: { key: PieRange; label: string }[] = [
@@ -231,6 +252,27 @@ const pieRanges: { key: PieRange; label: string }[] = [
   { key: 'week', label: '本周' },
   { key: 'all', label: '全部' }
 ]
+
+async function loadServerStats() {
+  try {
+    const [allRes, weekRes] = await Promise.all([
+      learningApi.summary('all'),
+      learningApi.summary('week')
+    ])
+    serverStats.today = Number(allRes.data?.todaySeconds) || 0
+    serverStats.total = Number(allRes.data?.totalSeconds) || 0
+    serverStats.streak = Number(allRes.data?.streakDays) || 0
+    serverStats.loaded = true
+    const map: Record<string, number> = {}
+    for (const r of (weekRes.data?.records || [])) {
+      map[String(r.recordDate)] = Number(r.seconds) || 0
+    }
+    weekRecords.value = map
+  } catch {
+    // 后端不可用时统计卡保持 0，柱状图退回本地数据
+    serverStats.loaded = false
+  }
+}
 
 const pieRef = ref<HTMLElement | null>(null)
 let pieChart: echarts.ECharts | null = null
@@ -287,28 +329,31 @@ const barHeight = (sec: number) => {
 }
 
 async function loadModuleStats() {
-  const ranking = study.moduleRankingRange(pieRange.value)
+  // 优先使用 learning 服务的按模块聚合；接口不可用时退回本地 localStorage
+  let ranking: { id: string; seconds: number }[] = []
+  try {
+    const res = await learningApi.modules(pieRange.value)
+    ranking = (res.data || []).map(x => ({ id: String(x.moduleId), seconds: Number(x.seconds) || 0 }))
+  } catch {
+    ranking = study.moduleRankingRange(pieRange.value)
+  }
   if (!ranking.length) { moduleStats.value = []; return }
   try {
     const res = await moduleApi.list()
-    const mods: any[] = res.data || []
+    const mods: Module[] = res.data || []
     const totalSec = ranking.reduce((s, r) => s + r.seconds, 0)
-    moduleStats.value = ranking
-      .map(r => {
-        const mod = mods.find(m => String(m.id) === String(r.id))
-        return {
-          id: r.id,
-          name: mod?.name || `模块 #${r.id}`,
-          color: mod?.color || '#ea4c89',
-          seconds: r.seconds,
-          percent: Math.round((r.seconds / totalSec) * 100)
-        }
-      })
+    moduleStats.value = ranking.map(r => {
+      const mod = mods.find(m => m.id === r.id)
+      return {
+        id: r.id,
+        name: mod?.name || '未知模块',
+        color: mod?.color || '#ea4c89',
+        seconds: r.seconds,
+        percent: totalSec > 0 ? Math.round((r.seconds / totalSec) * 100) : 0
+      }
+    })
   } catch {
-    moduleStats.value = ranking.map(r => ({
-      id: r.id, name: `模块 #${r.id}`, color: '#ea4c89', seconds: r.seconds,
-      percent: Math.round((r.seconds / ranking.reduce((s, x) => s + x.seconds, 0)) * 100)
-    }))
+    moduleStats.value = []
   }
 }
 
@@ -325,7 +370,7 @@ const tabs: { key: TabKey; label: string; icon: string }[] = [
 const activeTab = ref<TabKey>('profile')
 
 watch(activeTab, (t) => {
-  if (t === 'profile') { loadModuleStats(); loadRecentEntries() }
+  if (t === 'profile') { loadServerStats(); loadModuleStats(); loadRecentEntries() }
 }, { immediate: true })
 
 watch(pieRange, () => { loadModuleStats() })
@@ -548,7 +593,24 @@ const toggleDark = () => {
   document.documentElement.classList.toggle('dark', isDark.value)
   localStorage.setItem(DARK_KEY, isDark.value ? '1' : '0')
 }
-const handleLogout = () => ElMessage.info('本地学习模式，无需退出登录 🎉')
+const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '退出登录', {
+      type: 'warning',
+      confirmButtonText: '退出',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return
+  }
+  try {
+    if (localStorage.getItem('light_refresh_token')) await identityApi.logout()
+  } catch { /* 允许本地登出 */ }
+  localStorage.removeItem('light_access_token')
+  localStorage.removeItem('light_refresh_token')
+  ElMessage.success('已退出登录')
+  router.push('/login')
+}
 </script>
 
 <style scoped lang="scss">

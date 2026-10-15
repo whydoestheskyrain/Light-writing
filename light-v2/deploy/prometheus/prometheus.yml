@@ -1,0 +1,18 @@
+# Prometheus 抓取配置
+# 容器间走 compose 网络的服务名直连各服务 actuator（不经网关，避免鉴权与限流影响采集）
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: light-services
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - light-gateway:8080
+          - light-identity-service:8101
+          - light-knowledge-service:8102
+          - light-file-service:8103
+          - light-learning-service:8104
+        labels:
+          env: dev
