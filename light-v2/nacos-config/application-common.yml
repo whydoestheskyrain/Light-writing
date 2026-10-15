@@ -1,0 +1,25 @@
+# ============================================================
+# Nacos 配置中心 —— 全服务共享配置（dataId: application-common.yml, group: DEFAULT_GROUP）
+# 每个服务启动时通过 spring.config.import 拉取；Nacos 控制台改完发布即动态生效。
+# 本文件是 Nacos 配置的仓库存档，发布命令见 nacos-config/publish.ps1。
+# 环境变量（如 JWT_SECRET、DB_PASS）优先级仍高于本配置。
+# ============================================================
+
+security:
+  jwt:
+    # 网关验签与各业务服务解析用户身份共用同一密钥
+    secret: light-v2-development-secret-change-me-2026
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # prometheus：供 Prometheus 抓取的 Micrometer 指标端点
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      # 所有指标自动打上 application=<服务名>，Prometheus/Grafana 里可按服务筛选
+      application: ${spring.application.name}

@@ -1,0 +1,26 @@
+[
+  {
+    "resource": "identity-service",
+    "resourceMode": 0,
+    "count": 50,
+    "intervalSec": 1
+  },
+  {
+    "resource": "knowledge-service",
+    "resourceMode": 0,
+    "count": 200,
+    "intervalSec": 1
+  },
+  {
+    "resource": "file-service",
+    "resourceMode": 0,
+    "count": 50,
+    "intervalSec": 1
+  },
+  {
+    "resource": "learning-service",
+    "resourceMode": 0,
+    "count": 100,
+    "intervalSec": 1
+  }
+]

@@ -4,16 +4,27 @@ server:
 spring:
   application:
     name: light-identity-service
+  config:
+    import:
+      - optional:nacos:${spring.application.name}.yml
+      - optional:nacos:application-common.yml
   cloud:
     nacos:
       discovery:
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:}
         group: ${NACOS_GROUP:DEFAULT_GROUP}
-        username: ${NACOS_USERNAME:nacos}
-        password: ${NACOS_PASSWORD:nacos}
+        username: ${NACOS_USERNAME:}
+        password: ${NACOS_PASSWORD:}
         enabled: ${NACOS_ENABLED:true}
         register-enabled: ${NACOS_REGISTER_ENABLED:true}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:}
+        password: ${NACOS_PASSWORD:}
+        file-extension: yml
   jackson:
     time-zone: GMT+8
   datasource:
@@ -36,7 +47,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: when-authorized
