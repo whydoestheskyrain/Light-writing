@@ -5,6 +5,7 @@ import com.light.common.auth.CurrentUser;
 import com.light.common.auth.JwtService;
 import com.light.common.exception.BusinessException;
 import com.light.common.result.PageResult;
+import com.light.knowledge.client.FileServiceClient;
 import com.light.knowledge.entity.Entry;
 import com.light.knowledge.mapper.EntryMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
@@ -33,6 +34,7 @@ class EntryServiceTest {
 
     @Mock EntryMapper entryMapper;
     @Mock ModuleService moduleService;
+    @Mock FileServiceClient fileServiceClient;
 
     @InjectMocks EntryService service;
 
@@ -140,6 +142,7 @@ class EntryServiceTest {
 
         service.delete(1L);
 
+        verify(fileServiceClient).deleteAttachments(1L);
         verify(entryMapper).delete(any());
     }
 }

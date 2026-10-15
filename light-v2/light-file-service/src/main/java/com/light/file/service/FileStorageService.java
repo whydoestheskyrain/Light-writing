@@ -6,6 +6,7 @@ import com.light.common.auth.CurrentUser;
 import com.light.file.entity.FileMetadata;
 import com.light.file.mapper.FileMetadataMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -21,8 +22,10 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileStorageService {
@@ -65,10 +68,37 @@ public class FileStorageService {
     }
 
     public void delete(Long id) {
-        FileMetadata metadata = get(id); Path root = Paths.get(storagePath).toAbsolutePath().normalize();
+        FileMetadata metadata = get(id);
+        Path root = Paths.get(storagePath).toAbsolutePath().normalize();
         try { Files.deleteIfExists(root.resolve(metadata.getObjectKey()).normalize()); }
         catch (IOException ex) { throw new BusinessException(ErrorCode.INTERNAL_ERROR, "文件删除失败"); }
         mapper.deleteById(id);
+    }
+
+    /**
+     * 删除当前用户指定条目下的全部附件（磁盘文件 + 元数据）。
+     * 供 knowledge 服务删除条目/模块时跨服务调用。返回删除的文件数。
+     */
+    public int deleteByEntry(Long entryId) {
+        Long uid = CurrentUser.requireId();
+        List<FileMetadata> files = mapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<FileMetadata>()
+                        .eq(FileMetadata::getUserId, uid)
+                        .eq(FileMetadata::getEntryId, entryId));
+        Path root = Paths.get(storagePath).toAbsolutePath().normalize();
+        int deleted = 0;
+        for (FileMetadata f : files) {
+            try {
+                Files.deleteIfExists(root.resolve(f.getObjectKey()).normalize());
+                mapper.deleteById(f.getId());
+                deleted++;
+            } catch (IOException ex) {
+                // 单个文件删除失败不阻断其余清理；元数据仍尽量删除，磁盘残留留待排查
+                log.warn("附件磁盘文件删除失败 id={} key={}: {}", f.getId(), f.getObjectKey(), ex.getMessage());
+                mapper.deleteById(f.getId());
+            }
+        }
+        return deleted;
     }
 
     private String sha256(Path path) throws IOException {

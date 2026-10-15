@@ -6,6 +6,7 @@ import com.light.common.result.PageResult;
 import com.light.common.exception.BusinessException;
 import com.light.common.auth.CurrentUser;
 import com.light.common.result.ErrorCode;
+import com.light.knowledge.client.FileServiceClient;
 import com.light.knowledge.entity.Entry;
 import com.light.knowledge.mapper.EntryMapper;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class EntryService {
     private final EntryMapper entryMapper;
     private final ModuleService moduleService;
     private final ObjectMapper objectMapper;
+    private final FileServiceClient fileServiceClient;
 
     public PageResult<Entry> page(long current, long size, Long moduleId, Integer status, String keyword, String tag) {
         Page<Entry> page = new Page<>(current, size);
@@ -112,6 +114,8 @@ public class EntryService {
     @CacheEvict(cacheNames = "entryTags", allEntries = true)
     public void delete(Long id) {
         getById(id);
+        // 先通知文件服务清理该条目下的全部附件（失败不阻断），再删除知识条目
+        fileServiceClient.deleteAttachments(id);
         entryMapper.delete(new LambdaQueryWrapper<Entry>().eq(Entry::getId, id)
                 .eq(Entry::getUserId, CurrentUser.requireId()));
     }

@@ -40,4 +40,10 @@ public class FileController {
                 .body(storageService.resource(id));
     }
     @DeleteMapping("/{id}") public Result<Void> delete(@PathVariable Long id) { storageService.delete(id); return Result.success(); }
+
+    /** 删除指定条目下的全部附件（knowledge 服务删除条目/模块时调用） */
+    @DeleteMapping("/entry/{entryId}")
+    public Result<Integer> deleteByEntry(@PathVariable Long entryId) {
+        return Result.success(storageService.deleteByEntry(entryId));
+    }
 }

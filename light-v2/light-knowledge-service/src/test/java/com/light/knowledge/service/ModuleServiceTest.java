@@ -3,7 +3,10 @@ package com.light.knowledge.service;
 import com.light.common.auth.CurrentUser;
 import com.light.common.auth.JwtService;
 import com.light.common.exception.BusinessException;
+import com.light.knowledge.client.FileServiceClient;
+import com.light.knowledge.entity.Entry;
 import com.light.knowledge.entity.Module;
+import com.light.knowledge.mapper.EntryMapper;
 import com.light.knowledge.mapper.ModuleMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -28,6 +31,8 @@ import static org.mockito.Mockito.when;
 class ModuleServiceTest {
 
     @Mock ModuleMapper moduleMapper;
+    @Mock EntryMapper entryMapper;
+    @Mock FileServiceClient fileServiceClient;
 
     @InjectMocks ModuleService service;
 
@@ -38,6 +43,7 @@ class ModuleServiceTest {
         MybatisConfiguration config = new MybatisConfiguration();
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(config, "");
         TableInfoHelper.initTableInfo(assistant, Module.class);
+        TableInfoHelper.initTableInfo(assistant, Entry.class);
     }
 
     @AfterEach
@@ -107,11 +113,19 @@ class ModuleServiceTest {
     }
 
     @Test
-    void delete_shouldDeleteOwnedModule() {
-        when(moduleMapper.selectOne(any())).thenReturn(module());
+    void delete_shouldCascadeDeleteEntriesAttachmentsAndCover() {
+        Module withCover = module();
+        withCover.setCoverImage("/api/file/9/download");
+        when(moduleMapper.selectOne(any())).thenReturn(withCover);
+        Entry child = new Entry();
+        child.setId(5L);
+        when(entryMapper.selectList(any())).thenReturn(List.of(child));
 
         service.delete(10L);
 
+        verify(fileServiceClient).deleteAttachments(5L);
+        verify(entryMapper).delete(any());
+        verify(fileServiceClient).deleteFile(9L);
         verify(moduleMapper).deleteById(10L);
     }
 }

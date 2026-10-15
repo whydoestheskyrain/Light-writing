@@ -1,16 +1,17 @@
-# 运行阶段基础镜像：只带 JRE（不含 JDK），体积更小
-# 必须是 25，因为本模块 jar 由 Java 25 编译，用低版本 JRE 会报 Unsupported class file major version
+# syntax=docker/dockerfile:1
+# ============ 构建阶段：容器内用 Maven 编译，宿主机无需预装 Maven/JDK ============
+FROM maven:3.9-eclipse-temurin-25 AS builder
+WORKDIR /build
+COPY . .
+# -s 指定阿里云镜像 settings，避免容器内直连 Maven Central 握手中断
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -s /build/docker/maven-settings.xml -pl light-file-service -am package -DskipTests
+
+# ============ 运行阶段：只带 JRE，镜像更小 ============
 FROM eclipse-temurin:25-jre
-
 WORKDIR /app
-
-# 拷贝本模块已构建的可执行 fat jar
-# target/*.jar 只会匹配 fat jar；spring-boot-maven-plugin 生成的 *.jar.original 不会被匹配
-COPY target/*.jar app.jar
-
-# 预留上传文件落盘目录，便于 compose 挂载数据卷
+# 文件服务需要 mkdir 上传目录（容器内以 root 运行，直接写 /app/data）
 RUN mkdir -p /app/data/uploads
-
+COPY --from=builder /build/light-file-service/target/*.jar app.jar
 EXPOSE 8103
-
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
