@@ -89,13 +89,13 @@ class LearningServiceTest {
     @Test
     void heartbeat_firstTime_shouldAccumulateAndAudit() {
         when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
-        when(valueOps.increment(anyString())).thenReturn(1L);
+        when(valueOps.increment(anyString(), eq(60L))).thenReturn(60L);
 
         service.heartbeat(heartbeat());
 
-        // 去重键 + 每日 + 模块，共 3 次增量操作
+        // 去重键 SETNX + 每日/模块各一次 INCRBY 60
         verify(valueOps).setIfAbsent(anyString(), eq("1"), any(Duration.class));
-        verify(valueOps, org.mockito.Mockito.times(2)).increment(anyString());
+        verify(valueOps, org.mockito.Mockito.times(2)).increment(anyString(), eq(60L));
         verify(auditWriter).writeAsync(1L, "event-1", 10L, 60);
     }
 
@@ -105,7 +105,7 @@ class LearningServiceTest {
 
         service.heartbeat(heartbeat());
 
-        verify(valueOps, never()).increment(anyString());
+        verify(valueOps, never()).increment(anyString(), org.mockito.ArgumentMatchers.anyLong());
         verify(auditWriter, never()).writeAsync(any(), any(), any(), any());
     }
 
@@ -125,12 +125,12 @@ class LearningServiceTest {
     @Test
     void heartbeat_withoutModule_shouldSkipModuleAccumulation() {
         when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
-        when(valueOps.increment(anyString())).thenReturn(1L);
+        when(valueOps.increment(anyString(), eq(60L))).thenReturn(60L);
 
         service.heartbeat(new HeartbeatRequest("event-2", 60, null));
 
-        // 只有去重键 + 每日，共 1 次 increment（不产生模块 key）
-        verify(valueOps, org.mockito.Mockito.times(1)).increment(anyString());
+        // 只有每日一次 INCRBY（不产生模块 key）
+        verify(valueOps, org.mockito.Mockito.times(1)).increment(anyString(), eq(60L));
     }
 
     @Test
