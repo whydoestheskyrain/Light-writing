@@ -1,0 +1,7 @@
+# 多阶段构建在容器内重新编译，忽略宿主机构建产物和 IDE 文件
+**/target/
+**/.idea/
+**/*.iml
+.git/
+.gitignore
+.env

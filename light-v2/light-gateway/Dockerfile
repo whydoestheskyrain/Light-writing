@@ -1,14 +1,18 @@
-# 运行阶段基础镜像：只带 JRE（不含 JDK），体积更小
-# 必须是 25，因为本模块 jar 由 Java 25 编译，用低版本 JRE 会报 Unsupported class file major version
+# syntax=docker/dockerfile:1
+# ============ 构建阶段：容器内用 Maven 编译，宿主机无需预装 Maven/JDK ============
+FROM maven:3.9-eclipse-temurin-25 AS builder
+WORKDIR /build
+# 构建上下文是 light-v2 根目录（见 docker-compose.yml 的 context: ..），包含父 POM 与全部模块
+COPY . .
+# BuildKit 缓存 ~/.m2：依赖只在首次构建时下载；-am 顺带构建 common 等上游模块
+# -s 指定阿里云镜像 settings，避免容器内直连 Maven Central 握手中断
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -s /build/docker/maven-settings.xml -pl light-gateway -am package -DskipTests
+
+# ============ 运行阶段：只带 JRE，镜像更小 ============
 FROM eclipse-temurin:25-jre
-
 WORKDIR /app
-
-# 拷贝本模块已构建的可执行 fat jar
-# target/*.jar 只会匹配 fat jar；spring-boot-maven-plugin 生成的 *.jar.original 不会被匹配
-COPY target/*.jar app.jar
-
+COPY --from=builder /build/light-gateway/target/*.jar app.jar
 EXPOSE 8080
-
-# MaxRAMPercentage 让 JVM 按容器内存上限自动算堆，避免容器被 OOM Kill
+# MaxRAMPercentage 让 JVM 按容器内存上限自动算堆，避免 OOM Kill
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
